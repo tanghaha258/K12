@@ -1,0 +1,30 @@
+{
+  "name": "k12-edu-system",
+  "version": "1.0.0",
+  "description": "K12教务管理系统 - 企业级教务与德育一体化管理平台",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm run dev -w @k12/server",
+    "dev:client": "npm run dev -w @k12/client",
+    "build": "npm run build -w @k12/server && npm run build -w @k12/client",
+    "db:generate": "npm run db:generate -w @k12/server",
+    "db:push": "npm run db:push -w @k12/server",
+    "db:migrate": "npm run db:migrate -w @k12/server",
+    "db:studio": "npm run db:studio -w @k12/server",
+    "lint": "eslint packages/*/src --ext .ts,.tsx",
+    "format": "prettier --write \"packages/*/src/**/*.{ts,tsx,css,json}\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "typescript": "^5.4.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

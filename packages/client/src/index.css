@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --ds-bg: #0b1020;
+    --ds-surface: rgba(255, 255, 255, 0.06);
+    --ds-surface-2: rgba(255, 255, 255, 0.1);
+    --ds-overlay: rgba(0, 0, 0, 0.6);
+    --ds-fg: rgba(255, 255, 255, 0.92);
+    --ds-fg-muted: rgba(255, 255, 255, 0.72);
+    --ds-fg-subtle: rgba(255, 255, 255, 0.48);
+    --ds-border: rgba(255, 255, 255, 0.12);
+    --ds-divider: rgba(255, 255, 255, 0.08);
+    --ds-primary: #7c3aed;
+    --ds-success: #22c55e;
+    --ds-warning: #f59e0b;
+    --ds-danger: #ef4444;
+    --ds-info: #3b82f6;
+    --ds-radius-sm: 10px;
+    --ds-radius-md: 14px;
+    --ds-radius-lg: 18px;
+    --ds-shadow-sm: 0 8px 24px rgba(0, 0, 0, 0.24);
+    --ds-shadow-md: 0 16px 40px rgba(0, 0, 0, 0.32);
+    --ds-shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.38);
+    --ds-blur-sm: 8px;
+    --ds-blur-md: 16px;
+    --ds-blur-lg: 24px;
+    --ds-glass-bg: rgba(255, 255, 255, 0.08);
+    --ds-glass-border: rgba(255, 255, 255, 0.14);
+  }
+
+  .light {
+    --ds-bg: #f8fafc;
+    --ds-surface: rgba(0, 0, 0, 0.04);
+    --ds-surface-2: rgba(0, 0, 0, 0.08);
+    --ds-overlay: rgba(0, 0, 0, 0.4);
+    --ds-fg: rgba(0, 0, 0, 0.92);
+    --ds-fg-muted: rgba(0, 0, 0, 0.72);
+    --ds-fg-subtle: rgba(0, 0, 0, 0.48);
+    --ds-border: rgba(0, 0, 0, 0.12);
+    --ds-divider: rgba(0, 0, 0, 0.08);
+    --ds-glass-bg: rgba(255, 255, 255, 0.8);
+    --ds-glass-border: rgba(0, 0, 0, 0.1);
+  }
+
+  * {
+    @apply border-ds-border;
+  }
+
+  body {
+    @apply bg-ds-bg text-ds-fg;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  input,
+  select,
+  textarea {
+    background-color: var(--ds-surface);
+    color: var(--ds-fg);
+  }
+
+  select option {
+    background-color: #1a1f35;
+    color: var(--ds-fg);
+    padding: 8px 12px;
+  }
+
+  select option:hover,
+  select option:checked {
+    background-color: var(--ds-primary);
+    color: white;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--ds-fg-subtle);
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    border-color: var(--ds-primary);
+  }
+}
+
+@layer components {
+  .glass {
+    background: var(--ds-glass-bg);
+    backdrop-filter: blur(var(--ds-blur-md));
+    border: 1px solid var(--ds-glass-border);
+  }
+
+  .glass-card {
+    @apply glass rounded-md shadow-md;
+  }
+
+  .surface-card {
+    background: var(--ds-surface);
+    border: 1px solid var(--ds-border);
+    @apply rounded-md;
+  }
+
+  .surface-card-2 {
+    background: var(--ds-surface-2);
+    border: 1px solid var(--ds-border);
+    @apply rounded-md;
+  }
+
+  .form-input {
+    @apply w-full rounded-md border border-ds-border bg-ds-surface px-4 py-2.5 text-ds-fg outline-none transition-colors focus:border-ds-primary;
+  }
+
+  .form-select {
+    @apply w-full rounded-md border border-ds-border bg-ds-surface px-4 py-2.5 text-ds-fg outline-none transition-colors focus:border-ds-primary cursor-pointer;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}

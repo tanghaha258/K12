@@ -1,0 +1,404 @@
+// K12 教务管理系统 - 数据库设计 (Prisma Schema)
+// 包含模块：RBAC、组织架构、学生档案、考务成绩、德育量化、低代码引擎
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------
+// 1. RBAC & Auth (用户与权限)
+// ----------------------------------------------------------------------
+
+// 用户表
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique // 工号/学号
+  password  String   // 加密存储
+  name      String   // 真实姓名
+  avatar    String?
+  phone     String?  @unique
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id])
+  status    String   @default("ACTIVE") // ACTIVE, DISABLED
+  
+  // 关联
+  studentProfile   Student?   // 如果是学生
+  teacherProfile   Teacher?   // 如果是教师
+  dataScopes       UserScope[] // 数据范围授权
+  
+  // 审计
+  createdForms     LowcodeForm[]
+  moralEvents      MoralEvent[] // 录入的德育事件
+  auditLogs        AuditLog[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roleId])
+}
+
+// 角色表
+model Role {
+  id          String   @id @default(uuid())
+  code        String   @unique // ADMIN, TEACHER, STUDENT, PARENT
+  name        String
+  description String?
+  isSystem    Boolean  @default(false) // 系统内置不可删
+  
+  users       User[]
+  menus       RoleMenu[] // 菜单权限
+  permissions RolePermission[] // 功能权限
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 菜单定义（支持多端）
+model Menu {
+  id        String  @id @default(uuid())
+  parentId  String?
+  parent    Menu?   @relation("MenuHierarchy", fields: [parentId], references: [id])
+  children  Menu[]  @relation("MenuHierarchy")
+  
+  code      String  @unique // unique identifier
+  name      String
+  path      String?
+  icon      String?
+  sortOrder Int     @default(0)
+  clientType String // ADMIN, TEACHER, STUDENT
+  
+  roles     RoleMenu[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 角色-菜单关联
+model RoleMenu {
+  roleId String
+  menuId String
+  role   Role @relation(fields: [roleId], references: [id])
+  menu   Menu @relation(fields: [menuId], references: [id])
+
+  @@id([roleId, menuId])
+}
+
+// 角色-功能权限点关联
+model RolePermission {
+  id             String @id @default(uuid())
+  roleId         String
+  role           Role   @relation(fields: [roleId], references: [id])
+  permissionCode String // 字符串定义的权限点，如 STUDENT_PROFILE_EDIT
+
+  createdAt DateTime @default(now())
+  
+  @@unique([roleId, permissionCode])
+}
+
+// 用户数据范围（Row-Level Security）
+model UserScope {
+  id        String @id @default(uuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id])
+  
+  scopeType String // GRADE, CLASS, SUBJECT
+  targetId  String // 对应的 gradeId, classId, subjectId
+  
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([scopeType, targetId])
+}
+
+// ----------------------------------------------------------------------
+// 2. 组织架构 (Org)
+// ----------------------------------------------------------------------
+
+model Grade {
+  id           String @id @default(uuid())
+  name         String // 2024级
+  enrollmentYear Int  // 2024 (用于计算当前是高几)
+  isActive     Boolean @default(true)
+  
+  classes      Class[]
+  exams        Exam[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Class {
+  id           String @id @default(uuid())
+  gradeId      String
+  grade        Grade  @relation(fields: [gradeId], references: [id])
+  
+  name         String // 1班
+  fullName     String // 高一(1)班
+  
+  headTeacherId String? // 班主任ID
+  headTeacher   Teacher? @relation(fields: [headTeacherId], references: [id])
+  
+  students     Student[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([gradeId])
+}
+
+model Subject {
+  id        String @id @default(uuid())
+  name      String // 语文
+  code      String @unique // chinese
+  isSystem  Boolean @default(true)
+  
+  examSubjects ExamSubject[]
+  scores       Score[]
+  
+  createdAt DateTime @default(now())
+}
+
+model Teacher {
+  id        String @id @default(uuid())
+  userId    String @unique
+  user      User   @relation(fields: [userId], references: [id])
+  
+  name      String
+  
+  managedClasses Class[] // 担任班主任的班级
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ----------------------------------------------------------------------
+// 3. 学生档案 (Student Profile)
+// ----------------------------------------------------------------------
+
+model Student {
+  id           String @id @default(uuid())
+  userId       String @unique
+  user         User   @relation(fields: [userId], references: [id])
+  
+  // 核心不可变信息
+  studentNo    String @unique // 学号
+  examNo       String? // 考号
+  idCard       String? // 身份证
+  name         String
+  gender       String // M, F
+  enrollmentYear Int
+  
+  // 当前可变状态 (冗余字段，方便查询)
+  classId      String?
+  class        Class?   @relation(fields: [classId], references: [id])
+  seatNo       String?
+  dormBuilding String?
+  dormRoom     String?
+  dormBed      String?
+  boardingType String? // RESIDENT(住校), DAY(走读)
+  tags         String[] // JSON array: ["临界生", "偏科"]
+  
+  // 关联
+  scores       Score[]
+  moralEvents  MoralEvent[]
+  snapshots    StudentSnapshot[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([classId])
+  @@index([studentNo])
+}
+
+// 档案历史快照 (学期维度)
+model StudentSnapshot {
+  id           String @id @default(uuid())
+  studentId    String
+  student      Student @relation(fields: [studentId], references: [id])
+  
+  term         String // 2024-2025-1
+  className    String
+  seatNo       String?
+  dormInfo     String? // JSON: {building, room, bed}
+  boardingType String?
+  
+  updatedBy    String?
+  updatedAt    DateTime @default(now())
+  
+  @@index([studentId, term])
+}
+
+// ----------------------------------------------------------------------
+// 4. 考务与成绩 (Exam & Score)
+// ----------------------------------------------------------------------
+
+model Exam {
+  id           String @id @default(uuid())
+  name         String // 2024-2025第一学期期中考
+  type         String // MIDTERM, FINAL, MONTHLY
+  term         String // 2024-2025-1
+  gradeId      String
+  grade        Grade  @relation(fields: [gradeId], references: [id])
+  
+  status       String @default("DRAFT") // DRAFT, PUBLISHED, ARCHIVED
+  
+  subjects     ExamSubject[]
+  scores       Score[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ExamSubject {
+  id        String @id @default(uuid())
+  examId    String
+  exam      Exam    @relation(fields: [examId], references: [id])
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id])
+  
+  fullScore Decimal @db.Decimal(5, 2)
+  weight    Decimal @default(1.0) @db.Decimal(3, 2)
+  isStat    Boolean @default(true) // 是否计入总分
+  
+  createdAt DateTime @default(now())
+
+  @@unique([examId, subjectId])
+}
+
+model Score {
+  id           String @id @default(uuid())
+  studentId    String
+  student      Student @relation(fields: [studentId], references: [id])
+  
+  examId       String
+  exam         Exam    @relation(fields: [examId], references: [id])
+  
+  subjectId    String
+  subject      Subject @relation(fields: [subjectId], references: [id])
+  
+  score        Decimal @db.Decimal(5, 2) // 原始分
+  scoreRank    Int?    // 赋分(可选)
+  
+  classRank    Int?
+  gradeRank    Int?
+  
+  isAbsent     Boolean @default(false)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([examId, studentId, subjectId])
+  @@index([examId, classRank])
+  @@index([studentId])
+}
+
+// ----------------------------------------------------------------------
+// 5. 德育量化 (Moral)
+// ----------------------------------------------------------------------
+
+model MoralRule {
+  id           String @id @default(uuid())
+  name         String // 内务不整
+  category     String // DISCIPLINE, DORM, HYGIENE
+  score        Int    // -1, -2
+  gradeId      String? // 适用年级，空则通用
+  
+  isActive     Boolean @default(true)
+  
+  createdAt    DateTime @default(now())
+}
+
+model MoralEvent {
+  id           String @id @default(uuid())
+  studentId    String
+  student      Student @relation(fields: [studentId], references: [id])
+  
+  ruleId       String?
+  itemName     String // 规则快照名
+  scoreDelta   Int    // 扣分/加分
+  
+  source       String // PATROL(巡堂), DORM(宿管), CLASS(课堂)
+  occurredAt   DateTime
+  
+  description  String?
+  images       String[] // JSON array
+  
+  status       String @default("EFFECTIVE") // EFFECTIVE, REVOKED, PENDING
+  
+  createdBy    String // User ID
+  creator      User   @relation(fields: [createdBy], references: [id])
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([occurredAt])
+  @@index([source])
+}
+
+// ----------------------------------------------------------------------
+// 6. 低代码引擎 (Low-Code)
+// ----------------------------------------------------------------------
+
+model LowcodeForm {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  schema      Json     // 表单结构定义
+  
+  status      String   @default("DRAFT")
+  version     Int      @default(1)
+  
+  visibleTo   Json?    // 权限配置 { roles: [], grades: [] }
+  
+  createdBy   String
+  creator     User     @relation(fields: [createdBy], references: [id])
+  
+  records     LowcodeRecord[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model LowcodeRecord {
+  id          String   @id @default(uuid())
+  formId      String
+  form        LowcodeForm @relation(fields: [formId], references: [id])
+  
+  data        Json     // 提交的数据
+  
+  submitterId String
+  
+  createdAt   DateTime @default(now())
+
+  @@index([formId])
+  @@index([submitterId])
+}
+
+// ----------------------------------------------------------------------
+// 7. 审计日志 (Audit)
+// ----------------------------------------------------------------------
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  action      String   // LOGIN, IMPORT_SCORE, UPDATE_PROFILE
+  resource    String   // student, score, user
+  resourceId  String?
+  
+  actorId     String
+  actor       User     @relation(fields: [actorId], references: [id])
+  
+  details     Json?    // 修改前后的值
+  ip          String?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}

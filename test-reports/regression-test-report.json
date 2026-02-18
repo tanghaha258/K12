@@ -1,0 +1,201 @@
+{
+  "title": "阶段一 - 1.1 现有功能回归测试报告",
+  "date": "2026-02-18T15:12:00.383Z",
+  "summary": {
+    "passed": 26,
+    "failed": 1,
+    "skipped": 0,
+    "total": 27
+  },
+  "details": [
+    {
+      "module": "认证",
+      "api": "POST /auth/login",
+      "status": "PASS",
+      "message": "获取token成功",
+      "timestamp": "2026-02-18T15:12:00.016Z"
+    },
+    {
+      "module": "年级管理",
+      "api": "GET /org/grades",
+      "status": "PASS",
+      "message": "获取4条记录",
+      "timestamp": "2026-02-18T15:12:00.022Z"
+    },
+    {
+      "module": "年级管理",
+      "api": "POST /org/grades",
+      "status": "PASS",
+      "message": "创建年级ID: cmls67i8p000b2go7yk2wfrwx",
+      "timestamp": "2026-02-18T15:12:00.030Z"
+    },
+    {
+      "module": "年级管理",
+      "api": "PATCH /org/grades/:id",
+      "status": "PASS",
+      "message": "",
+      "timestamp": "2026-02-18T15:12:00.038Z"
+    },
+    {
+      "module": "年级管理",
+      "api": "DELETE /org/grades/:id",
+      "status": "PASS",
+      "message": "",
+      "timestamp": "2026-02-18T15:12:00.050Z"
+    },
+    {
+      "module": "班级管理",
+      "api": "GET /org/classes",
+      "status": "PASS",
+      "message": "获取4条记录",
+      "timestamp": "2026-02-18T15:12:00.054Z"
+    },
+    {
+      "module": "班级管理",
+      "api": "CRUD",
+      "status": "FAIL",
+      "message": "Internal server error",
+      "timestamp": "2026-02-18T15:12:00.067Z"
+    },
+    {
+      "module": "学生管理",
+      "api": "GET /students",
+      "status": "PASS",
+      "message": "获取5条记录",
+      "timestamp": "2026-02-18T15:12:00.076Z"
+    },
+    {
+      "module": "学生管理",
+      "api": "POST /students",
+      "status": "PASS",
+      "message": "创建学生ID: cmls67icl000i2go7qnf0intp",
+      "timestamp": "2026-02-18T15:12:00.171Z"
+    },
+    {
+      "module": "学生管理",
+      "api": "PATCH /students/:id",
+      "status": "PASS",
+      "message": "",
+      "timestamp": "2026-02-18T15:12:00.184Z"
+    },
+    {
+      "module": "学生管理",
+      "api": "DELETE /students/:id",
+      "status": "PASS",
+      "message": "",
+      "timestamp": "2026-02-18T15:12:00.197Z"
+    },
+    {
+      "module": "教师管理",
+      "api": "GET /teachers",
+      "status": "PASS",
+      "message": "获取4条记录",
+      "timestamp": "2026-02-18T15:12:00.202Z"
+    },
+    {
+      "module": "教师管理",
+      "api": "POST /teachers",
+      "status": "PASS",
+      "message": "创建教师ID: cmls67ifp000r2go7d9fhbk0j",
+      "timestamp": "2026-02-18T15:12:00.282Z"
+    },
+    {
+      "module": "教师管理",
+      "api": "PATCH /teachers/:id",
+      "status": "PASS",
+      "message": "",
+      "timestamp": "2026-02-18T15:12:00.293Z"
+    },
+    {
+      "module": "教师管理",
+      "api": "DELETE /teachers/:id",
+      "status": "PASS",
+      "message": "",
+      "timestamp": "2026-02-18T15:12:00.304Z"
+    },
+    {
+      "module": "宿舍管理",
+      "api": "GET /dorms/buildings",
+      "status": "PASS",
+      "message": "获取1条记录",
+      "timestamp": "2026-02-18T15:12:00.309Z"
+    },
+    {
+      "module": "宿舍管理",
+      "api": "POST /dorms/buildings",
+      "status": "PASS",
+      "message": "创建楼栋ID: cmls67igo000u2go7spenzbf4",
+      "timestamp": "2026-02-18T15:12:00.316Z"
+    },
+    {
+      "module": "宿舍管理",
+      "api": "GET /dorms/statistics",
+      "status": "PASS",
+      "message": "",
+      "timestamp": "2026-02-18T15:12:00.322Z"
+    },
+    {
+      "module": "宿舍管理",
+      "api": "DELETE /dorms/buildings/:id",
+      "status": "PASS",
+      "message": "",
+      "timestamp": "2026-02-18T15:12:00.330Z"
+    },
+    {
+      "module": "用户管理",
+      "api": "GET /users",
+      "status": "PASS",
+      "message": "获取undefined条记录",
+      "timestamp": "2026-02-18T15:12:00.338Z"
+    },
+    {
+      "module": "用户管理",
+      "api": "GET /users/:id",
+      "status": "PASS",
+      "message": "",
+      "timestamp": "2026-02-18T15:12:00.343Z"
+    },
+    {
+      "module": "角色管理",
+      "api": "GET /roles",
+      "status": "PASS",
+      "message": "获取6条记录",
+      "timestamp": "2026-02-18T15:12:00.346Z"
+    },
+    {
+      "module": "角色管理",
+      "api": "GET /roles/menu/list",
+      "status": "PASS",
+      "message": "获取11个菜单",
+      "timestamp": "2026-02-18T15:12:00.349Z"
+    },
+    {
+      "module": "数据权限",
+      "api": "GET /datascopes",
+      "status": "PASS",
+      "message": "获取5条记录",
+      "timestamp": "2026-02-18T15:12:00.352Z"
+    },
+    {
+      "module": "数据权限",
+      "api": "GET /datascopes/teachers",
+      "status": "PASS",
+      "message": "获取4位教师",
+      "timestamp": "2026-02-18T15:12:00.356Z"
+    },
+    {
+      "module": "字典管理",
+      "api": "GET /dict/types",
+      "status": "PASS",
+      "message": "获取4种类型",
+      "timestamp": "2026-02-18T15:12:00.359Z"
+    },
+    {
+      "module": "字典管理",
+      "api": "GET /dict/subjects/all",
+      "status": "PASS",
+      "message": "获取0个科目",
+      "timestamp": "2026-02-18T15:12:00.363Z"
+    }
+  ]
+}

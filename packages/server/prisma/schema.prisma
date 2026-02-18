@@ -1,0 +1,429 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model audit_logs {
+  id         String   @id
+  userId     String
+  action     String
+  resource   String
+  resourceId String?
+  detail     String?
+  ip         String?
+  createdAt  DateTime @default(now())
+  users      users    @relation(fields: [userId], references: [id])
+
+  @@index([action])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model classes {
+  id              String            @id
+  name            String
+  fullName        String?
+  gradeId         String
+  headTeacherId   String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime
+  grades          grades            @relation(fields: [gradeId], references: [id])
+  teachers        teachers?         @relation(fields: [headTeacherId], references: [id])
+  students        students[]
+  teacher_classes teacher_classes[]
+
+  @@unique([name, gradeId])
+  @@index([gradeId], map: "classes_gradeId_fkey")
+  @@index([headTeacherId], map: "classes_headTeacherId_fkey")
+}
+
+model data_scopes {
+  id        String   @id
+  userId    String
+  createdAt DateTime @default(now())
+  scopeId   String
+  scopeType String
+  updatedAt DateTime
+  users     users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, scopeType, scopeId])
+  @@index([scopeType])
+  @@index([userId])
+}
+
+model dorm_beds {
+  id         String     @id
+  roomId     String
+  bedNo      String
+  status     String     @default("empty")
+  studentId  String?    @unique
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime
+  dorm_rooms dorm_rooms @relation(fields: [roomId], references: [id])
+  students   students?
+
+  @@unique([roomId, bedNo])
+}
+
+model dorm_buildings {
+  id         String       @id
+  name       String       @unique
+  floors     Int          @default(1)
+  rooms      Int          @default(0)
+  beds       Int          @default(0)
+  remark     String?
+  status     String       @default("active")
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime
+  dorm_rooms dorm_rooms[]
+}
+
+model dorm_rooms {
+  id             String         @id
+  buildingId     String
+  roomNo         String
+  floor          Int
+  capacity       Int            @default(4)
+  beds           Int            @default(4)
+  gender         String         @default("male")
+  remark         String?
+  status         String         @default("active")
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime
+  dorm_beds      dorm_beds[]
+  dorm_buildings dorm_buildings @relation(fields: [buildingId], references: [id])
+  students       students[]
+
+  @@unique([buildingId, roomNo])
+}
+
+model exam_subjects {
+  id        String   @id
+  examId    String
+  subjectId String
+  maxScore  Float
+  weight    Float    @default(1)
+  isStat    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  exams     exams    @relation(fields: [examId], references: [id])
+  subjects  subjects @relation(fields: [subjectId], references: [id])
+  scores    scores[]
+
+  @@unique([examId, subjectId])
+  @@index([subjectId], map: "exam_subjects_subjectId_fkey")
+}
+
+model exams {
+  id            String          @id
+  name          String
+  type          String
+  term          String
+  schoolYear    String
+  gradeId       String
+  status        String          @default("draft")
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime
+  exam_subjects exam_subjects[]
+  grades        grades          @relation(fields: [gradeId], references: [id])
+  scores        scores[]
+
+  @@index([gradeId], map: "exams_gradeId_fkey")
+}
+
+model grades {
+  id             String           @id
+  name           String           @unique
+  entryYear      Int
+  status         String           @default("active")
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  classes        classes[]
+  exams          exams[]
+  students       students[]
+  subject_grades subject_grades[]
+  score_segments score_segments[]
+  score_lines    score_lines[]
+}
+
+model import_tasks {
+  id           String   @id
+  type         String
+  status       String   @default("pending")
+  totalCount   Int      @default(0)
+  successCount Int      @default(0)
+  failCount    Int      @default(0)
+  errors       Json?
+  fileId       String?
+  resultFileId String?
+  createdBy    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+}
+
+model moral_events {
+  id         String   @id
+  studentId  String
+  ruleId     String?
+  source     String
+  category   String
+  itemName   String
+  scoreDelta Float
+  note       String?
+  images     Json?
+  status     String   @default("effective")
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  createdBy  String
+  students   students @relation(fields: [studentId], references: [id])
+
+  @@index([occurredAt])
+  @@index([source])
+  @@index([studentId])
+}
+
+model moral_rules {
+  id        String   @id
+  name      String
+  category  String
+  score     Float
+  gradeId   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model permissions {
+  id               String             @id
+  code             String             @unique
+  name             String
+  type             String
+  createdAt        DateTime           @default(now())
+  role_permissions role_permissions[]
+}
+
+model role_permissions {
+  id           String      @id
+  roleId       String
+  permissionId String
+  permissions  permissions @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId], map: "role_permissions_permissionId_fkey")
+}
+
+model roles {
+  id          String   @id
+  name        String
+  code        String   @unique
+  description String?
+  permissions Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  isSystem    Boolean  @default(false)
+  users       users[]
+}
+
+model scores {
+  id            String        @id
+  studentId     String
+  examId        String
+  subjectId     String
+  rawScore      Float
+  assignedScore Float?
+  classRank     Int?
+  gradeRank     Int?
+  isAbsent      Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime
+  exams         exams         @relation(fields: [examId], references: [id])
+  students      students      @relation(fields: [studentId], references: [id])
+  exam_subjects exam_subjects @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, examId, subjectId])
+  @@index([examId])
+  @@index([studentId])
+  @@index([subjectId], map: "scores_subjectId_fkey")
+}
+
+model student_profile_history {
+  id           String   @id
+  studentId    String
+  term         String
+  classId      String
+  seatNo       String?
+  dormBuilding String?
+  dormRoom     String?
+  dormBed      String?
+  boardingType String?
+  updatedBy    String
+  createdAt    DateTime @default(now())
+  students     students @relation(fields: [studentId], references: [id])
+
+  @@index([studentId, term])
+}
+
+model students {
+  id                      String                    @id
+  userId                  String                    @unique
+  studentNo               String                    @unique
+  examNo                  String?
+  gender                  String
+  idCard                  String?
+  entryYear               Int
+  gradeId                 String
+  classId                 String
+  seatNo                  String?
+  dormRoomId              String?
+  dormBedId               String?                   @unique
+  boardingType            String                    @default("day")
+  tags                    Json?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime
+  moral_events            moral_events[]
+  scores                  scores[]
+  student_profile_history student_profile_history[]
+  classes                 classes                   @relation(fields: [classId], references: [id])
+  dorm_beds               dorm_beds?                @relation(fields: [dormBedId], references: [id])
+  dorm_rooms              dorm_rooms?               @relation(fields: [dormRoomId], references: [id])
+  grades                  grades                    @relation(fields: [gradeId], references: [id])
+  users                   users                     @relation(fields: [userId], references: [id])
+
+  @@index([classId])
+  @@index([dormRoomId])
+  @@index([gradeId])
+}
+
+model subjects {
+  id              String            @id
+  name            String            @unique
+  code            String            @unique
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime
+  exam_subjects   exam_subjects[]
+  teacher_classes teacher_classes[]
+  subject_grades  subject_grades[]
+  score_segments  score_segments[]
+}
+
+// 科目-年级关联表（支持科目按年级差异）
+model subject_grades {
+  id        String   @id
+  subjectId String
+  gradeId   String
+  createdAt DateTime @default(now())
+  subjects  subjects @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  grades    grades   @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+
+  @@unique([subjectId, gradeId])
+  @@index([gradeId])
+}
+
+// 分段规则表（优秀/及格/低分阈值）
+model score_segments {
+  id            String    @id
+  name          String
+  gradeId       String
+  subjectId     String?
+  excellentMin  Float     @default(90)
+  goodMin       Float     @default(80)
+  passMin       Float     @default(60)
+  failMax       Float     @default(59)
+  isDefault     Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime
+  grades        grades    @relation(fields: [gradeId], references: [id])
+  subjects      subjects? @relation(fields: [subjectId], references: [id])
+
+  @@index([gradeId])
+  @@index([subjectId])
+  @@index([isActive])
+}
+
+// 线位配置表（一本线/普高线/自定义线）
+model score_lines {
+  id          String        @id
+  name        String
+  type        score_line_type
+  gradeId     String
+  scoreValue  Float
+  description String?
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime
+  grades      grades        @relation(fields: [gradeId], references: [id])
+
+  @@index([gradeId])
+  @@index([type])
+  @@index([isActive])
+}
+
+enum score_line_type {
+  ONE_BOOK    // 一本线
+  REGULAR     // 普高线
+  CUSTOM      // 自定义线
+}
+
+model teacher_classes {
+  id        String   @id
+  teacherId String
+  classId   String
+  subjectId String
+  createdAt DateTime @default(now())
+  classes   classes  @relation(fields: [classId], references: [id])
+  subjects  subjects @relation(fields: [subjectId], references: [id])
+  teachers  teachers @relation(fields: [teacherId], references: [id])
+
+  @@unique([teacherId, classId, subjectId])
+  @@index([classId], map: "teacher_classes_classId_fkey")
+  @@index([subjectId], map: "teacher_classes_subjectId_fkey")
+}
+
+model teachers {
+  id              String            @id
+  userId          String            @unique
+  teacherNo       String            @unique
+  name            String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime
+  classes         classes[]
+  teacher_classes teacher_classes[]
+  users           users             @relation(fields: [userId], references: [id])
+}
+
+model users {
+  id          String        @id
+  account     String        @unique
+  password    String
+  name        String
+  role        users_role    @default(STUDENT)
+  status      users_status  @default(PENDING)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime
+  roleId      String?
+  audit_logs  audit_logs[]
+  data_scopes data_scopes[]
+  students    students?
+  teachers    teachers?
+  roles       roles?        @relation(fields: [roleId], references: [id])
+
+  @@index([roleId], map: "users_roleId_fkey")
+}
+
+enum users_role {
+  ADMIN
+  SCHOOL_ADMIN
+  GRADE_ADMIN
+  CLASS_TEACHER
+  SUBJECT_TEACHER
+  STUDENT
+}
+
+enum users_status {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
