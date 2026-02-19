@@ -30,6 +30,7 @@ interface Subject {
   id: string;
   code: string;
   name: string;
+  maxScore?: number;
   createdAt: string;
   subject_grades?: {
     grades: {
@@ -82,7 +83,7 @@ export default function Dict() {
   const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [deleteSubjectConfirm, setDeleteSubjectConfirm] = useState<Subject | null>(null);
-  const [subjectForm, setSubjectForm] = useState({ code: '', name: '', gradeIds: [] as string[] });
+  const [subjectForm, setSubjectForm] = useState({ code: '', name: '', maxScore: 100, gradeIds: [] as string[] });
 
   // 分段规则相关状态
   const [showSegmentModal, setShowSegmentModal] = useState(false);
@@ -156,7 +157,7 @@ export default function Dict() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subjects'] });
       setShowSubjectModal(false);
-      setSubjectForm({ code: '', name: '', gradeIds: [] });
+      setSubjectForm({ code: '', name: '', maxScore: 100, gradeIds: [] });
     },
     onError: (error: any) => {
       alert(error.response?.data?.message || '创建失败');
@@ -344,7 +345,7 @@ export default function Dict() {
             <button
               onClick={() => {
                 setEditingSubject(null);
-                setSubjectForm({ code: '', name: '', gradeIds: [] });
+                setSubjectForm({ code: '', name: '', maxScore: 100, gradeIds: [] });
                 setShowSubjectModal(true);
               }}
               className="flex items-center gap-2 px-4 py-2 bg-ds-primary text-ds-fg rounded-md hover:bg-ds-primary/90 transition-colors"
@@ -360,6 +361,7 @@ export default function Dict() {
                 <tr>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">科目编码</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">科目名称</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">满分</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">适用年级</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">操作</th>
                 </tr>
@@ -367,7 +369,7 @@ export default function Dict() {
               <tbody>
                 {subjects?.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-ds-fg-muted">
+                    <td colSpan={5} className="px-4 py-8 text-center text-ds-fg-muted">
                       暂无科目数据
                     </td>
                   </tr>
@@ -376,6 +378,7 @@ export default function Dict() {
                     <tr key={subject.id} className="border-t border-ds-border hover:bg-ds-surface-2/50 transition-colors">
                       <td className="px-4 py-3 text-sm text-ds-fg-muted">{subject.code}</td>
                       <td className="px-4 py-3 text-sm font-medium text-ds-fg">{subject.name}</td>
+                      <td className="px-4 py-3 text-sm text-ds-fg">{subject.maxScore || 100}分</td>
                       <td className="px-4 py-3 text-sm text-ds-fg-muted">
                         {subject.subject_grades?.map(sg => sg.grades.name).join(', ') || '所有年级'}
                       </td>
@@ -387,6 +390,7 @@ export default function Dict() {
                               setSubjectForm({
                                 code: subject.code,
                                 name: subject.name,
+                                maxScore: subject.maxScore || 100,
                                 gradeIds: subject.subject_grades?.map(sg => sg.grades.id) || [],
                               });
                               setShowSubjectModal(true);
@@ -636,6 +640,18 @@ export default function Dict() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-ds-fg mb-1">满分</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="300"
+                  value={subjectForm.maxScore}
+                  onChange={(e) => setSubjectForm({ ...subjectForm, maxScore: Number(e.target.value) })}
+                  className="w-full px-3 py-2 border border-ds-border rounded-md bg-ds-surface text-ds-fg focus:outline-none focus:ring-2 focus:ring-ds-primary/50"
+                  required
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-ds-fg mb-1">适用年级（可多选）</label>
                 <div className="flex flex-wrap gap-2">
                   {grades?.map((grade: any) => (
@@ -732,7 +748,7 @@ export default function Dict() {
                   <input
                     type="number"
                     min="0"
-                    max="100"
+                    max="200"
                     value={segmentForm.excellentMin}
                     onChange={(e) => setSegmentForm({ ...segmentForm, excellentMin: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-ds-border rounded-md bg-ds-surface text-ds-fg focus:outline-none focus:ring-2 focus:ring-ds-primary/50"
@@ -744,7 +760,7 @@ export default function Dict() {
                   <input
                     type="number"
                     min="0"
-                    max="100"
+                    max="200"
                     value={segmentForm.goodMin}
                     onChange={(e) => setSegmentForm({ ...segmentForm, goodMin: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-ds-border rounded-md bg-ds-surface text-ds-fg focus:outline-none focus:ring-2 focus:ring-ds-primary/50"
@@ -756,7 +772,7 @@ export default function Dict() {
                   <input
                     type="number"
                     min="0"
-                    max="100"
+                    max="200"
                     value={segmentForm.passMin}
                     onChange={(e) => setSegmentForm({ ...segmentForm, passMin: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-ds-border rounded-md bg-ds-surface text-ds-fg focus:outline-none focus:ring-2 focus:ring-ds-primary/50"
@@ -768,7 +784,7 @@ export default function Dict() {
                   <input
                     type="number"
                     min="0"
-                    max="100"
+                    max="200"
                     value={segmentForm.failMax}
                     onChange={(e) => setSegmentForm({ ...segmentForm, failMax: Number(e.target.value) })}
                     className="w-full px-3 py-2 border border-ds-border rounded-md bg-ds-surface text-ds-fg focus:outline-none focus:ring-2 focus:ring-ds-primary/50"

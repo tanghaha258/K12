@@ -13,6 +13,9 @@ import { DictModule } from './modules/dict/dict.module';
 import { DataScopeModule } from './modules/datascope/datascope.module';
 import { ScoreSegmentsModule } from './modules/score-segments/score-segments.module';
 import { ScoreLinesModule } from './modules/score-lines/score-lines.module';
+import { ExamsModule } from './modules/exams/exams.module';
+import { ScoresModule } from './modules/scores/scores.module';
+import { AnalysisModule } from './modules/analysis/analysis.module';
 
 @Module({
   imports: [
@@ -32,6 +35,9 @@ import { ScoreLinesModule } from './modules/score-lines/score-lines.module';
     DataScopeModule,
     ScoreSegmentsModule,
     ScoreLinesModule,
+    ExamsModule,
+    ScoresModule,
+    AnalysisModule,
   ],
 })
 export class AppModule {}

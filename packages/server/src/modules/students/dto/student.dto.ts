@@ -1,5 +1,8 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsInt, IsIn, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+const ID_CARD_REGEX = /^[1-9]\d{5}(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]$/;
+const ID_CARD_MESSAGE = '请输入正确的身份证号（18位）';
 
 export class CreateStudentDto {
   @ApiProperty({ example: '2024001', description: '学号' })
@@ -19,6 +22,7 @@ export class CreateStudentDto {
   @ApiPropertyOptional({ example: '110101200001011234', description: '身份证号' })
   @IsString()
   @IsOptional()
+  @Matches(ID_CARD_REGEX, { message: ID_CARD_MESSAGE })
   idCard?: string;
 
   @ApiProperty({ example: 2024, description: '入学年份' })
@@ -90,6 +94,7 @@ export class UpdateStudentDto {
   @ApiPropertyOptional({ example: '110101200001011234', description: '身份证号' })
   @IsString()
   @IsOptional()
+  @Matches(ID_CARD_REGEX, { message: ID_CARD_MESSAGE })
   idCard?: string;
 
   @ApiPropertyOptional({ example: 2024, description: '入学年份' })

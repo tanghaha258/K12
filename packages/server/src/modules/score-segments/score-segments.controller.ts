@@ -21,6 +21,15 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class ScoreSegmentsController {
   constructor(private readonly scoreSegmentsService: ScoreSegmentsService) {}
 
+  @Get('default/:gradeId')
+  @ApiOperation({ summary: '获取默认分段规则' })
+  getDefault(
+    @Param('gradeId') gradeId: string,
+    @Query('subjectId') subjectId?: string,
+  ) {
+    return this.scoreSegmentsService.getDefaultSegment(gradeId, subjectId);
+  }
+
   @Get()
   @ApiOperation({ summary: '获取分段规则列表' })
   findAll(@Query() query: QueryScoreSegmentDto) {
@@ -49,14 +58,5 @@ export class ScoreSegmentsController {
   @ApiOperation({ summary: '删除分段规则' })
   remove(@Param('id') id: string) {
     return this.scoreSegmentsService.remove(id);
-  }
-
-  @Get('default/:gradeId')
-  @ApiOperation({ summary: '获取默认分段规则' })
-  getDefault(
-    @Param('gradeId') gradeId: string,
-    @Query('subjectId') subjectId?: string,
-  ) {
-    return this.scoreSegmentsService.getDefaultSegment(gradeId, subjectId);
   }
 }

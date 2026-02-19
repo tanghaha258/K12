@@ -1,5 +1,8 @@
-import { IsString, IsNotEmpty, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+const PHONE_REGEX = /^1[3-9]\d{9}$/;
+const PHONE_MESSAGE = '请输入正确的手机号（11位数字，以1开头）';
 
 export class CreateTeacherDto {
   @ApiProperty({ example: 'T001', description: '工号' })
@@ -11,6 +14,12 @@ export class CreateTeacherDto {
   @IsString()
   @IsNotEmpty({ message: '姓名不能为空' })
   name: string;
+
+  @ApiPropertyOptional({ example: '13800138000', description: '手机号' })
+  @IsString()
+  @IsOptional()
+  @Matches(PHONE_REGEX, { message: PHONE_MESSAGE })
+  phone?: string;
 }
 
 export class UpdateTeacherDto {
@@ -18,6 +27,12 @@ export class UpdateTeacherDto {
   @IsString()
   @IsOptional()
   name?: string;
+
+  @ApiPropertyOptional({ example: '13800138000', description: '手机号' })
+  @IsString()
+  @IsOptional()
+  @Matches(PHONE_REGEX, { message: PHONE_MESSAGE })
+  phone?: string;
 }
 
 export class AssignClassDto {

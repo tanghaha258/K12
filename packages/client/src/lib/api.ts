@@ -82,8 +82,8 @@ export const studentsApi = {
 export const teachersApi = {
   list: (params?: { search?: string }) => api.get('/teachers', { params }),
   get: (id: string) => api.get(`/teachers/${id}`),
-  create: (data: { teacherNo: string; name: string }) => api.post('/teachers', data),
-  update: (id: string, data: { name?: string }) => api.patch(`/teachers/${id}`, data),
+  create: (data: { teacherNo: string; name: string; phone?: string }) => api.post('/teachers', data),
+  update: (id: string, data: { name?: string; phone?: string }) => api.patch(`/teachers/${id}`, data),
   delete: (id: string) => api.delete(`/teachers/${id}`),
   assignClass: (id: string, data: { classId: string; subjectId: string }) => api.post(`/teachers/${id}/classes`, data),
   removeClass: (id: string, classId: string, subjectId: string) => api.delete(`/teachers/${id}/classes/${classId}/subjects/${subjectId}`),
@@ -93,8 +93,8 @@ export const teachersApi = {
 export const subjectsApi = {
   list: () => api.get('/dict/subjects/all'),
   listByGrade: (gradeId: string) => api.get(`/dict/subjects/by-grade/${gradeId}`),
-  create: (data: { code: string; name: string; gradeIds?: string[] }) => api.post('/dict/subjects', data),
-  update: (id: string, data: { name?: string; code?: string; gradeIds?: string[] }) => api.patch(`/dict/subjects/${id}`, data),
+  create: (data: { code: string; name: string; maxScore?: number; gradeIds?: string[] }) => api.post('/dict/subjects', data),
+  update: (id: string, data: { name?: string; code?: string; maxScore?: number; gradeIds?: string[] }) => api.patch(`/dict/subjects/${id}`, data),
   delete: (id: string) => api.delete(`/dict/subjects/${id}`),
 };
 
@@ -155,7 +155,7 @@ export const dormsApi = {
 };
 
 export const examsApi = {
-  list: (params?: { gradeId?: string; type?: string; schoolYear?: string; status?: string }) =>
+  list: (params?: { gradeId?: string; type?: string; schoolYear?: string; term?: string; status?: string; search?: string }) =>
     api.get('/exams', { params }),
   get: (id: string) => api.get(`/exams/${id}`),
   getStatistics: (id: string) => api.get(`/exams/${id}/statistics`),
@@ -165,17 +165,47 @@ export const examsApi = {
     term: string;
     schoolYear: string;
     gradeId: string;
-    subjects?: { subjectId: string; maxScore: number; weight?: number; isStat?: boolean }[];
+    startTime?: string;
+    endTime?: string;
+    subjects?: {
+      subjectId: string;
+      maxScore: number;
+      excellentLine?: number;
+      passLine?: number;
+      lowLine?: number;
+      weight?: number;
+      includeInTotal?: boolean;
+      includeInRank?: boolean;
+    }[];
   }) => api.post('/exams', data),
-  update: (id: string, data: Partial<{ name: string; type: string; term: string; schoolYear: string; status: string }>) =>
+  update: (id: string, data: Partial<{ name: string; type: string; term: string; schoolYear: string; startTime: string; endTime: string; status: string }>) =>
     api.patch(`/exams/${id}`, data),
+  updateStatus: (id: string, status: string) =>
+    api.patch(`/exams/${id}/status`, { status }),
   delete: (id: string) => api.delete(`/exams/${id}`),
-  addSubject: (examId: string, data: { subjectId: string; maxScore: number; weight?: number; isStat?: boolean }) =>
-    api.post(`/exams/${examId}/subjects`, data),
+  copy: (id: string, name: string) =>
+    api.post(`/exams/${id}/copy`, { name }),
+  addSubject: (examId: string, data: {
+    subjectId: string;
+    maxScore: number;
+    excellentLine?: number;
+    passLine?: number;
+    lowLine?: number;
+    weight?: number;
+    includeInTotal?: boolean;
+    includeInRank?: boolean;
+  }) => api.post(`/exams/${examId}/subjects`, data),
+  updateSubject: (examId: string, subjectId: string, data: Partial<{
+    maxScore: number;
+    excellentLine: number;
+    passLine: number;
+    lowLine: number;
+    weight: number;
+    includeInTotal: boolean;
+    includeInRank: boolean;
+  }>) => api.patch(`/exams/${examId}/subjects/${subjectId}`, data),
   removeSubject: (examId: string, subjectId: string) =>
     api.delete(`/exams/${examId}/subjects/${subjectId}`),
-  publish: (id: string) => api.post(`/exams/${id}/publish`),
-  unpublish: (id: string) => api.post(`/exams/${id}/unpublish`),
 };
 
 export const scoresApi = {
@@ -193,6 +223,14 @@ export const scoresApi = {
   delete: (id: string) => api.delete(`/scores/${id}`),
   calculateRanks: (examId: string, subjectId?: string) =>
     api.post(`/scores/ranks/${examId}`, null, { params: subjectId ? { subjectId } : undefined }),
+  downloadTemplate: (examId: string) =>
+    api.get(`/scores/template/${examId}`, { responseType: 'blob' }),
+  exportScores: (examId: string, classId?: string) =>
+    api.get(`/scores/export/${examId}`, { params: classId ? { classId } : undefined, responseType: 'blob' }),
+  importExcel: (examId: string, formData: FormData) =>
+    api.post(`/scores/import/${examId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
 };
 
 export const analysisApi = {

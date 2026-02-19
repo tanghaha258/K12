@@ -72,7 +72,7 @@ export class DictController {
 
   @Post('subjects')
   @ApiOperation({ summary: '添加科目' })
-  async createSubject(@Body() data: { code: string; name: string; gradeIds?: string[] }) {
+  async createSubject(@Body() data: { code: string; name: string; maxScore?: number; gradeIds?: string[] }) {
     return this.dictService.createSubject(data);
   }
 
@@ -80,7 +80,7 @@ export class DictController {
   @ApiOperation({ summary: '更新科目' })
   async updateSubject(
     @Param('id') id: string,
-    @Body() data: { name?: string; code?: string; gradeIds?: string[] },
+    @Body() data: { name?: string; code?: string; maxScore?: number; gradeIds?: string[] },
   ) {
     return this.dictService.updateSubject(id, data);
   }

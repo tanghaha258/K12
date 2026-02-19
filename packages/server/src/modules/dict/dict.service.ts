@@ -110,7 +110,7 @@ export class DictService {
     });
   }
 
-  async createSubject(data: { code: string; name: string; gradeIds?: string[] }) {
+  async createSubject(data: { code: string; name: string; maxScore?: number; gradeIds?: string[] }) {
     const existing = await this.prisma.subjects.findUnique({
       where: { code: data.code },
     });
@@ -147,7 +147,7 @@ export class DictService {
     });
   }
 
-  async updateSubject(id: string, data: { name?: string; code?: string; gradeIds?: string[] }) {
+  async updateSubject(id: string, data: { name?: string; code?: string; maxScore?: number; gradeIds?: string[] }) {
     const subject = await this.prisma.subjects.findUnique({ where: { id } });
     if (!subject) {
       throw new NotFoundException('科目不存在');
@@ -174,7 +174,8 @@ export class DictService {
       where: { id },
       data: {
         ...updateData,
-        subject_grades: gradeIds ? {
+        updatedAt: new Date(),
+        subject_grades: gradeIds && gradeIds.length > 0 ? {
           create: gradeIds.map(gradeId => ({
             id: uuidv4(),
             gradeId,

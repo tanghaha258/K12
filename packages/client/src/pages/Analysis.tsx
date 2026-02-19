@@ -10,8 +10,13 @@ import {
   Target,
   Users,
   AlertTriangle,
+  Download,
+  Eye,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Modal } from '@/components/ui/modal';
 
 export default function Analysis() {
   const { user } = useAuthStore();
@@ -24,19 +29,12 @@ export default function Analysis() {
   const [lineType, setLineType] = useState<string>('');
   const [range, setRange] = useState<number>(10);
   const [threshold, setThreshold] = useState<number>(20);
-
-  const { data: grades } = useQuery({
-    queryKey: ['grades'],
-    queryFn: async () => {
-      const res = await gradesApi.list();
-      return res.data;
-    },
-  });
+  const [showRankingModal, setShowRankingModal] = useState(false);
 
   const { data: exams } = useQuery({
     queryKey: ['exams'],
     queryFn: async () => {
-      const res = await examsApi.list({ status: 'published' });
+      const res = await examsApi.list({});
       return res.data;
     },
     enabled: isAdmin,
@@ -69,12 +67,11 @@ export default function Analysis() {
   });
 
   const { data: classComparison } = useQuery({
-    queryKey: ['analysis-class-comparison', selectedExamId, selectedSubjectId],
+    queryKey: ['analysis-class-comparison', selectedExamId],
     queryFn: async () => {
       if (!selectedExamId) return null;
       const res = await analysisApi.getClassComparison({
         examId: selectedExamId,
-        subjectId: selectedSubjectId || undefined,
       });
       return res.data;
     },
@@ -136,6 +133,31 @@ export default function Analysis() {
     enabled: !!selectedExamId,
   });
 
+  const handleExport = () => {
+    if (!statistics) return;
+    const data = statistics.fullRankingList || statistics.rankingList || [];
+    const headers = statistics.mode === 'total' 
+      ? ['排名', '学号', '姓名', '班级', '总分']
+      : ['排名', '学号', '姓名', '班级', '分数'];
+    
+    const csvContent = [
+      headers.join(','),
+      ...data.map((item: any) => [
+        item.rank,
+        item.studentNo,
+        item.name,
+        item.className,
+        statistics.mode === 'total' ? item.totalScore : item.score,
+      ].join(',')),
+    ].join('\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${statistics.exam.name}_${statistics.mode === 'total' ? '总分' : statistics.subject?.name}_排名.csv`;
+    link.click();
+  };
+
   if (!isAdmin) {
     return (
       <div className="p-6">
@@ -148,6 +170,8 @@ export default function Analysis() {
     );
   }
 
+  const isTotalMode = !selectedSubjectId;
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
@@ -155,6 +179,15 @@ export default function Analysis() {
           <h1 className="text-2xl font-bold text-ds-fg">成绩分析</h1>
           <p className="text-sm text-ds-fg-muted mt-1">多维度成绩数据分析</p>
         </div>
+        {statistics && (
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 border border-ds-border rounded-md hover:bg-ds-surface-2 text-ds-fg transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            导出排名
+          </button>
+        )}
       </div>
 
       <div className="surface-card border border-ds-border rounded-lg p-4">
@@ -238,78 +271,177 @@ export default function Analysis() {
           <TabsContent value="overview" className="space-y-4">
             {statistics && (
               <>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  <div className="surface-card border border-ds-border rounded-lg p-4">
-                    <div className="text-sm text-ds-fg-muted">总人数</div>
-                    <div className="text-2xl font-bold text-ds-fg">{statistics.total}</div>
+                {/* 数据卡片 */}
+                <div className={`grid gap-3 ${statistics.mode === 'subject' ? 'grid-cols-2 md:grid-cols-4 lg:grid-cols-7' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-6'}`}>
+                  <div className="surface-card border border-ds-border rounded-lg p-3">
+                    <div className="text-xs text-ds-fg-muted">总人数</div>
+                    <div className="text-xl font-bold text-ds-fg">{statistics.total}</div>
                   </div>
-                  <div className="surface-card border border-ds-border rounded-lg p-4">
-                    <div className="text-sm text-ds-fg-muted">缺考人数</div>
-                    <div className="text-2xl font-bold text-ds-warning">{statistics.absentCount}</div>
+                  <div className="surface-card border border-ds-border rounded-lg p-3">
+                    <div className="text-xs text-ds-fg-muted">缺考人数</div>
+                    <div className="text-xl font-bold text-ds-warning">{statistics.absentCount || 0}</div>
                   </div>
-                  <div className="surface-card border border-ds-border rounded-lg p-4">
-                    <div className="text-sm text-ds-fg-muted">平均分</div>
-                    <div className="text-2xl font-bold text-ds-fg">{statistics.statistics?.average || '-'}</div>
+                  <div className="surface-card border border-ds-border rounded-lg p-3">
+                    <div className="text-xs text-ds-fg-muted">平均分</div>
+                    <div className="text-xl font-bold text-ds-fg">{statistics.statistics?.average || '-'}</div>
                   </div>
-                  <div className="surface-card border border-ds-border rounded-lg p-4">
-                    <div className="text-sm text-ds-fg-muted">标准差</div>
-                    <div className="text-2xl font-bold text-ds-fg">{statistics.statistics?.standardDeviation || '-'}</div>
+                  <div className="surface-card border border-ds-border rounded-lg p-3">
+                    <div className="text-xs text-ds-fg-muted">最高分</div>
+                    <div className="text-xl font-bold text-ds-success">{statistics.statistics?.max || '-'}</div>
                   </div>
-                  <div className="surface-card border border-ds-border rounded-lg p-4">
-                    <div className="text-sm text-ds-fg-muted">最高分</div>
-                    <div className="text-2xl font-bold text-ds-success">{statistics.statistics?.max || '-'}</div>
+                  <div className="surface-card border border-ds-border rounded-lg p-3">
+                    <div className="text-xs text-ds-fg-muted">最低分</div>
+                    <div className="text-xl font-bold text-ds-danger">{statistics.statistics?.min || '-'}</div>
                   </div>
-                  <div className="surface-card border border-ds-border rounded-lg p-4">
-                    <div className="text-sm text-ds-fg-muted">最低分</div>
-                    <div className="text-2xl font-bold text-ds-danger">{statistics.statistics?.min || '-'}</div>
-                  </div>
+                  {statistics.mode === 'subject' && (
+                    <>
+                      <div className="surface-card border border-ds-border rounded-lg p-3">
+                        <div className="text-xs text-ds-fg-muted">优秀率</div>
+                        <div className="text-xl font-bold text-ds-success">{statistics.statistics?.excellentRate || 0}%</div>
+                      </div>
+                      <div className="surface-card border border-ds-border rounded-lg p-3">
+                        <div className="text-xs text-ds-fg-muted">及格率</div>
+                        <div className="text-xl font-bold text-ds-primary">{statistics.statistics?.passRate || 0}%</div>
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 总分模式：线位分布 */}
+                {statistics.mode === 'total' && statistics.lineDistribution && (
                   <div className="surface-card border border-ds-border rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-ds-fg mb-4">分数段分布</h3>
-                    <div className="space-y-3">
-                      {statistics.segments?.details?.map((seg: any) => (
-                        <div key={seg.label} className="space-y-1">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-ds-fg">{seg.label}</span>
-                            <span className="text-ds-fg-muted">{seg.count}人 ({seg.percentage}%)</span>
+                    <h3 className="text-lg font-semibold text-ds-fg mb-4">线位分布</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {statistics.lineDistribution.map((line: any) => (
+                        <div key={line.name} className="p-4 bg-ds-surface-2 rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium text-ds-fg">{line.name}</span>
+                            <span className="text-sm text-ds-fg-muted">{line.value}分</span>
                           </div>
-                          <div className="w-full bg-ds-surface-2 rounded-full h-3 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${
-                                seg.label === '优秀' ? 'bg-ds-success' :
-                                seg.label === '良好' ? 'bg-ds-primary' :
-                                seg.label === '及格' ? 'bg-ds-warning' : 'bg-ds-danger'
-                              }`}
-                              style={{ width: `${seg.percentage}%` }}
-                            />
+                          <div className="flex items-center justify-between">
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-ds-success">{line.aboveCount}</div>
+                              <div className="text-xs text-ds-fg-muted">线上 ({line.aboveRate}%)</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-2xl font-bold text-ds-danger">{line.belowCount}</div>
+                              <div className="text-xs text-ds-fg-muted">线下</div>
+                            </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
+                )}
 
+                {/* 科目模式：分数段分布 */}
+                {statistics.mode === 'subject' && statistics.segments && (
                   <div className="surface-card border border-ds-border rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-ds-fg mb-4">统计指标</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <div className="text-sm text-ds-fg-muted">中位数</div>
-                        <div className="text-xl font-semibold text-ds-fg">{statistics.statistics?.median || '-'}</div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-ds-fg-muted">方差</div>
-                        <div className="text-xl font-semibold text-ds-fg">{statistics.statistics?.variance || '-'}</div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-ds-fg-muted">Q1 (25%)</div>
-                        <div className="text-xl font-semibold text-ds-fg">{statistics.statistics?.q1 || '-'}</div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-ds-fg-muted">Q3 (75%)</div>
-                        <div className="text-xl font-semibold text-ds-fg">{statistics.statistics?.q3 || '-'}</div>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-ds-fg">分数段分布</h3>
+                      <div className="text-sm text-ds-fg-muted">
+                        满分{statistics.maxScore}分 | 优秀线{statistics.scoreLines?.excellent}分 | 良好线{statistics.scoreLines?.good}分 | 及格线{statistics.scoreLines?.pass}分
                       </div>
                     </div>
+                    <div className="space-y-3">
+                      {statistics.segments.map((seg: any, index: number) => {
+                        // 计算区间显示
+                        const nextThreshold = index < statistics.segments.length - 1 ? statistics.segments[index + 1].threshold : 0;
+                        let rangeText = '';
+                        if (seg.label === '优秀') {
+                          rangeText = `≥${seg.threshold}分`;
+                        } else if (seg.label === '不及格') {
+                          rangeText = `<${seg.threshold === 0 ? statistics.scoreLines?.pass || 60 : seg.threshold}分`;
+                        } else {
+                          rangeText = `${nextThreshold}分 ~ ${seg.threshold - 1}分`;
+                        }
+                        return (
+                          <div key={seg.label} className="space-y-1">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-ds-fg">{seg.label} ({rangeText})</span>
+                              <span className="text-ds-fg-muted">{seg.count}人 ({seg.percentage}%)</span>
+                            </div>
+                            <div className="w-full bg-ds-surface-2 rounded-full h-3 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${
+                                  seg.label === '优秀' ? 'bg-ds-success' :
+                                  seg.label === '良好' ? 'bg-ds-primary' :
+                                  seg.label === '及格' ? 'bg-ds-warning' : 'bg-ds-danger'
+                                }`}
+                                style={{ width: `${seg.percentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* 统计指标 */}
+                    <div className="mt-6 pt-4 border-t border-ds-border">
+                      <h4 className="text-sm font-medium text-ds-fg mb-3">统计指标</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="p-3 bg-ds-surface-2 rounded-lg text-center">
+                          <div className="text-xs text-ds-fg-muted">优秀人数</div>
+                          <div className="text-xl font-bold text-ds-success">{statistics.excellentCount}</div>
+                        </div>
+                        <div className="p-3 bg-ds-surface-2 rounded-lg text-center">
+                          <div className="text-xs text-ds-fg-muted">良好人数</div>
+                          <div className="text-xl font-bold text-ds-primary">{statistics.goodCount}</div>
+                        </div>
+                        <div className="p-3 bg-ds-surface-2 rounded-lg text-center">
+                          <div className="text-xs text-ds-fg-muted">及格人数</div>
+                          <div className="text-xl font-bold text-ds-warning">{statistics.passCount}</div>
+                        </div>
+                        <div className="p-3 bg-ds-surface-2 rounded-lg text-center">
+                          <div className="text-xs text-ds-fg-muted">不及格人数</div>
+                          <div className="text-xl font-bold text-ds-danger">{statistics.failCount}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 排名列表预览 */}
+                <div className="surface-card border border-ds-border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-ds-fg">
+                      {statistics.mode === 'total' ? '总分排名' : `${statistics.subject?.name}排名`} (前10名)
+                    </h3>
+                    <button
+                      onClick={() => setShowRankingModal(true)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm border border-ds-border rounded-md hover:bg-ds-surface-2 text-ds-fg transition-colors"
+                    >
+                      <Eye className="w-4 h-4" />
+                      查看详细情况
+                    </button>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-ds-surface">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-ds-fg">排名</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-ds-fg">学号</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-ds-fg">姓名</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-ds-fg">班级</th>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-ds-fg">
+                            {statistics.mode === 'total' ? '总分' : '分数'}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {statistics.rankingList?.slice(0, 10).map((item: any) => (
+                          <tr key={item.studentId} className="border-t border-ds-border">
+                            <td className="px-4 py-2 text-sm font-medium text-ds-fg">{item.rank}</td>
+                            <td className="px-4 py-2 text-sm text-ds-fg-muted">{item.studentNo}</td>
+                            <td className="px-4 py-2 text-sm font-medium text-ds-fg">{item.name}</td>
+                            <td className="px-4 py-2 text-sm text-ds-fg-muted">{item.className}</td>
+                            <td className="px-4 py-2 text-sm font-bold text-ds-fg">
+                              {statistics.mode === 'total' ? item.totalScore : item.score}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </>
@@ -328,39 +460,19 @@ export default function Analysis() {
                       <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">平均分</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">最高分</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">最低分</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">标准差</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">优秀率</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">及格率</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {classComparison.classes?.map((cls: any, index: number) => {
-                      const total = cls.total - cls.absentCount;
-                      const excellentRate = total > 0 ? Math.round((cls.excellentCount / total) * 100) : 0;
-                      const passRate = total > 0 ? Math.round(((cls.excellentCount + cls.goodCount + cls.passCount) / total) * 100) : 0;
-
-                      return (
-                        <tr key={cls.classId} className="border-t border-ds-border hover:bg-ds-surface-2/50 transition-colors">
-                          <td className="px-4 py-3 text-sm font-medium text-ds-fg">{index + 1}</td>
-                          <td className="px-4 py-3 text-sm font-medium text-ds-fg">{cls.className}</td>
-                          <td className="px-4 py-3 text-sm text-ds-fg-muted">{cls.total}</td>
-                          <td className="px-4 py-3 text-sm font-medium text-ds-fg">{cls.average}</td>
-                          <td className="px-4 py-3 text-sm text-ds-success">{cls.max}</td>
-                          <td className="px-4 py-3 text-sm text-ds-danger">{cls.min}</td>
-                          <td className="px-4 py-3 text-sm text-ds-fg-muted">{cls.standardDeviation}</td>
-                          <td className="px-4 py-3 text-sm">
-                            <span className={`${excellentRate >= 20 ? 'text-ds-success' : 'text-ds-fg-muted'}`}>
-                              {excellentRate}%
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <span className={`${passRate >= 80 ? 'text-ds-success' : passRate >= 60 ? 'text-ds-warning' : 'text-ds-danger'}`}>
-                              {passRate}%
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {classComparison.classes?.map((cls: any, index: number) => (
+                      <tr key={cls.classId} className="border-t border-ds-border hover:bg-ds-surface-2/50 transition-colors">
+                        <td className="px-4 py-3 text-sm font-medium text-ds-fg">{index + 1}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-ds-fg">{cls.className}</td>
+                        <td className="px-4 py-3 text-sm text-ds-fg-muted">{cls.total}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-ds-fg">{cls.average}</td>
+                        <td className="px-4 py-3 text-sm text-ds-success">{cls.max}</td>
+                        <td className="px-4 py-3 text-sm text-ds-danger">{cls.min}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -596,7 +708,6 @@ export default function Analysis() {
                         <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">学号</th>
                         <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">姓名</th>
                         <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">班级</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">总分</th>
                         <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">平均百分位</th>
                         <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">弱势学科</th>
                         <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">优势学科</th>
@@ -608,7 +719,6 @@ export default function Analysis() {
                           <td className="px-4 py-3 text-sm text-ds-fg-muted">{s.studentNo}</td>
                           <td className="px-4 py-3 text-sm font-medium text-ds-fg">{s.name}</td>
                           <td className="px-4 py-3 text-sm text-ds-fg-muted">{s.className}</td>
-                          <td className="px-4 py-3 text-sm font-medium text-ds-fg">{s.totalScore}</td>
                           <td className="px-4 py-3 text-sm text-ds-fg">{s.averagePercentile}%</td>
                           <td className="px-4 py-3 text-sm">
                             {s.imbalancedSubjects?.filter((sub: any) => sub.type === 'weak').map((sub: any) => (
@@ -634,6 +744,43 @@ export default function Analysis() {
           </TabsContent>
         </Tabs>
       )}
+
+      {/* 排名详情弹窗 */}
+      <Modal
+        isOpen={showRankingModal}
+        onClose={() => setShowRankingModal(false)}
+        title={`${statistics?.mode === 'total' ? '总分排名' : `${statistics?.subject?.name}排名`} - 详细列表`}
+        className="max-w-4xl max-h-[80vh] overflow-y-auto"
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-ds-surface">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">排名</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">学号</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">姓名</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">班级</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">
+                  {statistics?.mode === 'total' ? '总分' : '分数'}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {statistics?.fullRankingList?.map((item: any) => (
+                <tr key={item.studentId} className="border-t border-ds-border">
+                  <td className="px-4 py-3 text-sm font-medium text-ds-fg">{item.rank}</td>
+                  <td className="px-4 py-3 text-sm text-ds-fg-muted">{item.studentNo}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-ds-fg">{item.name}</td>
+                  <td className="px-4 py-3 text-sm text-ds-fg-muted">{item.className}</td>
+                  <td className="px-4 py-3 text-sm font-bold text-ds-fg">
+                    {statistics.mode === 'total' ? item.totalScore : item.score}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Modal>
     </div>
   );
 }

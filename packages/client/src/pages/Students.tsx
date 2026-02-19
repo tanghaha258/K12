@@ -90,11 +90,27 @@ export default function Students() {
     boardingType: 'day',
   });
   const [error, setError] = useState('');
+  const [formErrors, setFormErrors] = useState<{ idCard?: string }>({});
   const [importData, setImportData] = useState<{
     file: File | null;
     preview: any[];
     errors: { row: number; message: string }[];
   }>({ file: null, preview: [], errors: [] });
+
+  const validateIdCard = (idCard: string) => {
+    if (!idCard) return true;
+    const idCardRegex = /^[1-9]\d{5}(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]$/;
+    return idCardRegex.test(idCard);
+  };
+
+  const validateForm = () => {
+    const errors: { idCard?: string } = {};
+    if (formData.idCard && !validateIdCard(formData.idCard)) {
+      errors.idCard = '请输入正确的身份证号（18位）';
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const { data: grades, isLoading: gradesLoading, error: gradesError } = useQuery({
     queryKey: ['grades'],
@@ -237,6 +253,7 @@ export default function Students() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateForm()) return;
     if (editingStudent) {
       if (isAdmin) {
         updateMutation.mutate({ id: editingStudent.id, data: {
@@ -623,7 +640,8 @@ export default function Students() {
 
               <div>
                 <label className="mb-1.5 block text-sm text-ds-fg-muted">身份证号</label>
-                <input type="text" value={formData.idCard} onChange={(e) => setFormData({ ...formData, idCard: e.target.value })} className="w-full rounded-md border border-ds-border bg-ds-surface px-4 py-2.5 text-ds-fg outline-none transition-colors focus:border-ds-primary focus:ring-2 focus:ring-ds-primary/20" />
+                <input type="text" value={formData.idCard} onChange={(e) => { setFormData({ ...formData, idCard: e.target.value }); setFormErrors({ ...formErrors, idCard: undefined }); }} maxLength={18} placeholder="请输入18位身份证号" className={`w-full rounded-md border bg-ds-surface px-4 py-2.5 text-ds-fg outline-none transition-colors focus:ring-2 ${formErrors.idCard ? 'border-ds-danger focus:border-ds-danger focus:ring-ds-danger/20' : 'border-ds-border focus:border-ds-primary focus:ring-ds-primary/20'}`} />
+                {formErrors.idCard && <p className="mt-1 text-xs text-ds-danger">{formErrors.idCard}</p>}
               </div>
 
               <div className="flex gap-3 pt-2">

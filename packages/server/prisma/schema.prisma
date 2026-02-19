@@ -102,16 +102,20 @@ model dorm_rooms {
 }
 
 model exam_subjects {
-  id        String   @id
-  examId    String
-  subjectId String
-  maxScore  Float
-  weight    Float    @default(1)
-  isStat    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  exams     exams    @relation(fields: [examId], references: [id])
-  subjects  subjects @relation(fields: [subjectId], references: [id])
-  scores    scores[]
+  id            String   @id
+  examId        String
+  subjectId     String
+  maxScore      Float
+  excellentLine Float?
+  passLine      Float?
+  lowLine       Float?
+  weight        Float    @default(1)
+  includeInTotal Boolean @default(true)
+  includeInRank Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  exams         exams    @relation(fields: [examId], references: [id])
+  subjects      subjects @relation(fields: [subjectId], references: [id])
+  scores        scores[]
 
   @@unique([examId, subjectId])
   @@index([subjectId], map: "exam_subjects_subjectId_fkey")
@@ -125,6 +129,8 @@ model exams {
   schoolYear    String
   gradeId       String
   status        String          @default("draft")
+  startTime     DateTime?
+  endTime       DateTime?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime
   exam_subjects exam_subjects[]
@@ -300,6 +306,7 @@ model subjects {
   id              String            @id
   name            String            @unique
   code            String            @unique
+  maxScore        Float             @default(100)
   createdAt       DateTime          @default(now())
   updatedAt       DateTime
   exam_subjects   exam_subjects[]
@@ -387,6 +394,7 @@ model teachers {
   userId          String            @unique
   teacherNo       String            @unique
   name            String
+  phone           String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime
   classes         classes[]

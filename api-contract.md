@@ -1,159 +1,657 @@
-# K12 教务管理系统 - 接口清单（Data 接入点）
+# K12 教务管理系统 - API 契约
 
-说明：本文件用于产品/研发对齐“页面需要哪些数据接入点”。字段可在技术设计阶段细化为 OpenAPI。
+> 最后更新：2026-02-19
 
-## 1. 鉴权与会话（Auth）
-### 1.1 登录
-- `POST /auth/login`
-  - 用途：PC/H5 账号密码登录
-  - 关键入参：account、password、clientType
-  - 关键出参：accessToken、refreshToken、expiresIn
-- `POST /auth/refresh`
-  - 用途：刷新 token
-- `POST /auth/logout`
-  - 用途：退出登录
-- `GET /me`
-  - 用途：获取当前用户、角色、数据范围、菜单树
-- `PATCH /me/password`
-  - 用途：修改密码（首次登录强制可配置）
+## 通用约定
 
-### 1.2 密码找回/重置
-- `POST /auth/password/reset`（可选）
-  - 用途：短信/邮箱重置
-- `POST /users/batch/password-reset`
-  - 用途：系统管理员批量重置
+### 响应格式
+```typescript
+// 成功响应
+{
+  data: T,
+  message?: string
+}
 
-## 2. 组织与人员（Org & Users）
-### 2.1 组织结构
-- `GET/POST/PATCH /org/grades`
-- `GET/POST/PATCH /org/classes`
-- `POST /org/rollover`
-  - 用途：学期升班/分班/毕业归档批处理
+// 分页响应
+{
+  data: T[],
+  total: number,
+  page: number,
+  pageSize: number
+}
 
-### 2.2 用户与档案
-- `GET /users`
-- `PATCH /users/{id}/status`
-- `POST /users/import`
-  - 用途：批量开通账号（学生为主；可选教师），异步任务
-- `GET /users/import/{taskId}`
-  - 用途：导入进度、错误行、可下载错误报告
+// 错误响应
+{
+  statusCode: number,
+  message: string,
+  error: string
+}
+```
 
-### 2.3 学生档案（含历史）
-- `GET /students`
-  - 用途：列表与搜索（按数据范围）
-- `GET /students/{id}`
-  - 用途：学生基础信息（不可变）+ 当前状态（可变）
-- `GET /students/{id}/profiles`
-  - 用途：学期/学年档案快照（班级/宿舍/座位等）
-- `PATCH /students/{id}/profile`
-  - 用途：更新可变档案（受权限控制，班主任默认可直接修改）
-- `GET /students/{id}/moral-events`
-  - 用途：学生德育事件时间轴（支持来源与时间范围过滤）
+### 认证
+- 使用 JWT Bearer Token
+- Header: `Authorization: Bearer <token>`
 
-## 3. 考务与成绩（Exam & Score）
-### 3.1 考试管理
-- `GET/POST/PATCH /exams`
-- `POST /exams/{id}/subjects`
-  - 用途：配置考试科目与满分/权重（可选）
+---
 
-### 3.2 成绩导入与入库
-- `POST /scores/import`
-  - 用途：上传成绩 Excel，异步解析与校验
-- `GET /scores/import/{taskId}`
-  - 用途：预校验结果（错误行/重复/缺考/科目列不匹配）
-- `POST /scores/import/{taskId}/commit`
-  - 用途：确认入库，写入 Score，并生成审计记录
-- `POST /scores/import/{taskId}/rollback`
-  - 用途：回滚本次导入（强审计，默认仅年级/系统管理员）
+## 1. 认证模块
 
-### 3.3 成绩查询（按角色数据范围返回）
-- `GET /scores`
-  - 用途：按 examId、classId、subjectId 拉取成绩明细（受限）
-- `GET /me/scores`
-  - 用途：学生端个人成绩
+### POST /api/auth/login
+登录获取 Token
 
-## 4. 分析与报表（Analytics & Reports）
-### 4.1 班级/年级分析
-- `GET /analytics/class`
-  - 指标：均分、优秀/及格/低分人数与比例、最高/最低、标准差
-- `GET /analytics/class/segments`
-  - 指标：分段构成（按规则配置）
-- `GET /analytics/class/borderline`
-  - 指标：临界生列表（按线位配置）
-- `GET /analytics/grade/classes`
-  - 指标：年级内各班对比
+**请求体：**
+```typescript
+{
+  account: string,    // 学号/工号
+  password: string
+}
+```
 
-### 4.2 学科分析（科任老师）
-- `GET /analytics/subject/classes`
-- `GET /analytics/subject/segments`
-- `GET /me/analytics/subject-balance`
+**响应：**
+```typescript
+{
+  accessToken: string,
+  user: {
+    id: string,
+    account: string,
+    name: string,
+    role: string
+  }
+}
+```
 
-### 4.3 计算任务
-- `POST /analytics/jobs/exam/{examId}`
-  - 用途：触发排名与指标计算（导入后自动触发）
-- `GET /analytics/jobs/{jobId}`
+### GET /api/auth/me
+获取当前用户信息
 
-### 4.4 导出报表
-- `GET /reports/exam/{examId}/class-compare`
-- `GET /reports/exam/{examId}/borderline`
-- `GET /reports/student/{studentId}/transcript`
+**响应：**
+```typescript
+{
+  id: string,
+  account: string,
+  name: string,
+  role: string,
+  roleName: string,
+  student?: {
+    studentNo: string,
+    gradeId: string,
+    classId: string,
+    grade: { id: string, name: string },
+    class: { id: string, name: string }
+  },
+  teacher?: {
+    teacherNo: string
+  }
+}
+```
 
-## 5. 德育量化（Moral）
-### 5.1 事件
-- `GET /moral/events`
-  - 过滤：studentId、classId、source、timeRange
-- `POST /moral/events`
-  - 用途：新增事件（巡堂/纪检/宿舍/课堂）
-- `POST /moral/events/import`
-  - 用途：批量导入事件
-- `POST /moral/events/{id}/revoke`
-  - 用途：撤销/更正（强审计）
-- `POST /moral/events/{id}/review`
-  - 用途：复核通过/驳回（可选流程）
+---
 
-### 5.2 统计
-- `GET /moral/stats/classes`
-- `GET /moral/stats/students`
-- `GET /moral/stats/sources`
-- `GET /me/moral-events`
-- `GET /me/moral-summary`
+## 2. 用户管理
 
-## 6. 通知与消息（Notices）
-- `GET /notices`
-- `POST /notices`
-- `GET /home/feed`
+### GET /api/users
+获取用户列表（分页）
 
-## 7. 低代码（Low-code）
-### 7.1 表单
-- `GET/POST/PATCH /lowcode/forms`
-- `POST /lowcode/forms/{id}/publish`
-- `GET /lowcode/forms/available`
-- `GET /lowcode/forms/{id}`
-- `POST /lowcode/forms/{id}/submit`
-- `GET /lowcode/forms/{id}/records`
+**查询参数：**
+- `role`: 角色过滤
+- `status`: 状态过滤
+- `search`: 搜索（姓名/学号/工号）
+- `page`: 页码
+- `pageSize`: 每页数量
 
-### 7.2 流程（可选增强）
-- `GET/POST/PATCH /lowcode/workflows`
-- `GET /approvals/inbox`
-- `POST /approvals/{id}/action`
+**响应：**
+```typescript
+{
+  users: [{
+    id: string,
+    account: string,
+    name: string,
+    role: string,
+    status: 'ACTIVE' | 'INACTIVE' | 'PENDING',
+    roleName: string,
+    student?: {
+      studentNo: string,
+      gradeId: string,
+      classId: string,
+      grade: { id: string, name: string },
+      class: { id: string, name: string }
+    },
+    teacher?: {
+      teacherNo: string
+    },
+    createdAt: Date
+  }],
+  total: number
+}
+```
 
-## 8. 分布屏（Display）
-- `GET /display/stream`
-  - 用途：返回滚动模块数据（德育榜单、临界生、预警等）与刷新策略
+### GET /api/users/:id
+获取用户详情
 
-## 9. 平台化配置（UI & Meta）
-### 9.1 菜单与页面配置
-- `GET/POST/PATCH /ui/menus`
-  - 用途：配置不同端的菜单树、路由、绑定权限点与页面类型
+**响应：**
+```typescript
+{
+  id: string,
+  account: string,
+  name: string,
+  role: string,
+  status: string,
+  roleName: string,
+  student?: {
+    studentNo: string,
+    gradeId: string,
+    classId: string,
+    grade: { id: string, name: string },
+    class: { id: string, name: string }
+  },
+  teacher?: {
+    teacherNo: string,
+    teacherClasses: [{
+      class: { id: string, name: string, grade: { id: string, name: string } },
+      subject: { id: string, name: string }
+    }]
+  },
+  dataScopes: [{
+    id: string,
+    scopeType: 'GRADE' | 'CLASS' | 'SUBJECT',
+    scopeId: string,
+    grade?: { id: string, name: string },
+    class?: { id: string, name: string },
+    subject?: { id: string, name: string }
+  }]
+}
+```
 
-### 9.2 通用CRUD（对象管理）
-- `GET/POST/PATCH /meta/entities`
-  - 用途：定义业务对象（元数据）
-- `POST /meta/entities/{id}/publish`
-  - 用途：发布对象，使其可用于菜单与授权
-- `GET/POST/PATCH/DELETE /meta/entities/{id}/records`
-  - 用途：对象数据的通用增删改查（受RBAC与数据范围约束）
+### PATCH /api/users/:id/status
+更新用户状态
 
-## 10. 审计（Audit）
-- `GET /audit/logs`
-  - 过滤：actor、type、timeRange、resourceId
+**请求体：**
+```typescript
+{
+  status: 'ACTIVE' | 'INACTIVE'
+}
+```
+
+### PATCH /api/users/:id/role
+分配角色
+
+**请求体：**
+```typescript
+{
+  roleId: string
+}
+```
+
+### POST /api/users/import
+批量导入用户
+
+**请求体：**
+```typescript
+{
+  type: 'STUDENT' | 'TEACHER',
+  users: [{
+    name: string,
+    studentNo?: string,  // 学生必填
+    teacherNo?: string,  // 教师必填
+    gender?: string,
+    gradeId?: string,
+    classId?: string
+  }]
+}
+```
+
+**响应：**
+```typescript
+{
+  success: number,
+  failed: number,
+  errors: [{ row: number, message: string }]
+}
+```
+
+### POST /api/users/batch/password-reset
+批量重置密码
+
+**请求体：**
+```typescript
+{
+  userIds: string[]
+}
+```
+
+**响应：**
+```typescript
+{
+  success: true,
+  count: number,
+  defaultPassword: '123456'
+}
+```
+
+---
+
+## 3. 组织管理
+
+### 年级 API
+
+#### GET /api/org/grades
+获取年级列表
+
+**响应：**
+```typescript
+[{
+  id: string,
+  name: string,        // 如 "2024级"
+  entryYear: number,   // 入学年份
+  status: 'active' | 'graduated'
+}]
+```
+
+#### POST /api/org/grades
+创建年级
+
+**请求体：**
+```typescript
+{
+  name: string,
+  entryYear: number
+}
+```
+
+#### PATCH /api/org/grades/:id
+更新年级
+
+#### DELETE /api/org/grades/:id
+删除年级
+
+### 班级 API
+
+#### GET /api/org/classes
+获取班级列表
+
+**查询参数：**
+- `gradeId`: 年级ID过滤
+
+**响应：**
+```typescript
+[{
+  id: string,
+  name: string,
+  gradeId: string,
+  headTeacherId?: string,
+  _count: {
+    students: number
+  }
+}]
+```
+
+#### POST /api/org/classes
+创建班级
+
+**请求体：**
+```typescript
+{
+  name: string,
+  gradeId: string,
+  headTeacherId?: string
+}
+```
+
+---
+
+## 4. 学生管理
+
+### GET /api/students
+获取学生列表
+
+**查询参数：**
+- `gradeId`: 年级过滤
+- `classId`: 班级过滤
+- `search`: 搜索（学号/姓名）
+
+**响应：**
+```typescript
+[{
+  id: string,
+  studentNo: string,
+  gender: string,
+  entryYear: number,
+  gradeId: string,
+  classId: string,
+  seatNo?: string,
+  boardingType: 'day' | 'boarding',
+  user: {
+    id: string,
+    name: string,
+    account: string,
+    status: string
+  },
+  grade: { id: string, name: string },
+  class: { id: string, name: string },
+  dormBuilding?: string,
+  dormRoom?: string,
+  dormBed?: string
+}]
+```
+
+### GET /api/students/:id
+获取学生详情
+
+### POST /api/students
+创建学生
+
+**请求体：**
+```typescript
+{
+  studentNo: string,
+  name: string,
+  gender: '男' | '女',
+  entryYear: number,
+  gradeId: string,
+  classId: string,
+  idCard?: string,
+  seatNo?: string,
+  dormBuilding?: string,
+  dormRoom?: string,
+  dormBed?: string,
+  boardingType?: 'day' | 'boarding'
+}
+```
+
+### PATCH /api/students/:id
+更新学生信息
+
+### DELETE /api/students/:id
+删除学生
+
+---
+
+## 5. 教师管理
+
+### GET /api/teachers
+获取教师列表
+
+**查询参数：**
+- `search`: 搜索（工号/姓名）
+
+**响应：**
+```typescript
+[{
+  id: string,
+  teacherNo: string,
+  name: string,
+  user: {
+    id: string,
+    name: string,
+    account: string,
+    status: string
+  },
+  classes: [{
+    id: string,
+    classId: string,
+    className: string,
+    gradeName: string,
+    subjectId: string,
+    subjectName: string
+  }]
+}]
+```
+
+### POST /api/teachers
+创建教师
+
+**请求体：**
+```typescript
+{
+  teacherNo: string,
+  name: string
+}
+```
+
+### PUT /api/teachers/:id/head-teacher/:classId
+设为班主任
+
+---
+
+## 6. 宿舍管理
+
+### GET /api/dorms/buildings
+获取宿舍楼列表
+
+**响应：**
+```typescript
+[{
+  id: string,
+  name: string,
+  floors: number,
+  rooms?: number,
+  beds?: number,
+  remark?: string,
+  status: string,
+  roomCount: number
+}]
+```
+
+### GET /api/dorms/rooms
+获取房间列表
+
+**查询参数：**
+- `buildingId`: 楼栋过滤
+
+**响应：**
+```typescript
+[{
+  id: string,
+  buildingId: string,
+  buildingName: string,
+  roomNo: string,
+  floor: number,
+  capacity: number,
+  beds: number,
+  occupied: number,
+  gender: 'male' | 'female',
+  status: string
+}]
+```
+
+### GET /api/dorms/statistics
+获取宿舍统计
+
+**响应：**
+```typescript
+{
+  buildings: number,
+  rooms: number,
+  beds: number,
+  occupied: number,
+  empty: number,
+  occupancyRate: number,
+  boardingStudents: number
+}
+```
+
+---
+
+## 7. 角色权限
+
+### GET /api/roles
+获取角色列表
+
+**响应：**
+```typescript
+[{
+  id: string,
+  name: string,
+  code: string,
+  description?: string,
+  permissions: string[],
+  isSystem: boolean
+}]
+```
+
+### POST /api/roles
+创建角色
+
+**请求体：**
+```typescript
+{
+  name: string,
+  code: string,
+  description?: string,
+  permissions?: string[]
+}
+```
+
+### POST /api/roles/:id/copy
+复制角色
+
+**请求体：**
+```typescript
+{
+  name: string,
+  code: string
+}
+```
+
+### GET /api/roles/:id/permissions
+获取角色权限
+
+**响应：**
+```typescript
+{
+  roleId: string,
+  permissions: string[]
+}
+```
+
+### POST /api/roles/:id/permissions
+设置角色权限
+
+**请求体：**
+```typescript
+{
+  permissions: string[]
+}
+```
+
+### GET /api/roles/menus
+获取菜单权限列表
+
+**响应：**
+```typescript
+[{
+  id: string,
+  name: string,
+  permissions: string[]
+}]
+```
+
+---
+
+## 8. 数据权限
+
+### GET /api/datascopes/user/:userId
+获取用户数据范围
+
+**响应：**
+```typescript
+{
+  userId: string,
+  scopes: [{
+    id: string,
+    scopeType: 'GRADE' | 'CLASS' | 'SUBJECT',
+    scopeId: string
+  }],
+  grouped: {
+    grades: [{ id: string, scopeType: string, scopeId: string }],
+    classes: [{ id: string, scopeType: string, scopeId: string }],
+    subjects: [{ id: string, scopeType: string, scopeId: string }]
+  }
+}
+```
+
+### POST /api/datascopes/user/:userId
+设置用户数据范围
+
+**请求体：**
+```typescript
+{
+  scopes: [{
+    scopeType: 'GRADE' | 'CLASS' | 'SUBJECT',
+    scopeId: string
+  }]
+}
+```
+
+---
+
+## 9. 字典管理
+
+### GET /api/dict/subjects/all
+获取所有科目
+
+**响应：**
+```typescript
+[{
+  id: string,
+  name: string,
+  code: string,
+  subject_grades: [{
+    grades: { id: string, name: string }
+  }]
+}]
+```
+
+### POST /api/dict/subjects
+创建科目
+
+**请求体：**
+```typescript
+{
+  name: string,
+  code: string,
+  gradeIds?: string[]
+}
+```
+
+---
+
+## 10. 分段规则
+
+### GET /api/score-segments
+获取分段规则列表
+
+**查询参数：**
+- `gradeId`: 年级过滤
+- `subjectId`: 科目过滤
+
+**响应：**
+```typescript
+[{
+  id: string,
+  gradeId: string,
+  subjectId?: string,
+  name: string,
+  segments: { label: string, min: number, max: number }[],
+  isDefault: boolean,
+  isActive: boolean
+}]
+```
+
+---
+
+## 11. 线位配置
+
+### GET /api/score-lines
+获取线位列表
+
+**响应：**
+```typescript
+[{
+  id: string,
+  gradeId: string,
+  name: string,
+  type: 'excellent' | 'good' | 'pass' | 'custom',
+  score: number,
+  isActive: boolean
+}]
+```

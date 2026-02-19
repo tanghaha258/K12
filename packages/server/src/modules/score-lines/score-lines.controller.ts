@@ -21,6 +21,21 @@ import { CreateScoreLineDto, UpdateScoreLineDto, QueryScoreLineDto } from './dto
 export class ScoreLinesController {
   constructor(private readonly scoreLinesService: ScoreLinesService) {}
 
+  @Get('grade/:gradeId/type/:type')
+  @ApiOperation({ summary: '获取年级指定类型的线位' })
+  async getByType(
+    @Param('gradeId') gradeId: string,
+    @Param('type') type: string,
+  ) {
+    return this.scoreLinesService.getByType(gradeId, type);
+  }
+
+  @Get('grade/:gradeId')
+  @ApiOperation({ summary: '获取年级的线位配置' })
+  async getByGrade(@Param('gradeId') gradeId: string) {
+    return this.scoreLinesService.getByGrade(gradeId);
+  }
+
   @Get()
   @ApiOperation({ summary: '获取线位配置列表' })
   async findAll(@Query() query: QueryScoreLineDto) {
@@ -49,20 +64,5 @@ export class ScoreLinesController {
   @ApiOperation({ summary: '删除线位配置' })
   async remove(@Param('id') id: string) {
     return this.scoreLinesService.remove(id);
-  }
-
-  @Get('grade/:gradeId')
-  @ApiOperation({ summary: '获取年级的线位配置' })
-  async getByGrade(@Param('gradeId') gradeId: string) {
-    return this.scoreLinesService.getByGrade(gradeId);
-  }
-
-  @Get('grade/:gradeId/type/:type')
-  @ApiOperation({ summary: '获取年级指定类型的线位' })
-  async getByType(
-    @Param('gradeId') gradeId: string,
-    @Param('type') type: string,
-  ) {
-    return this.scoreLinesService.getByType(gradeId, type);
   }
 }

@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { teachersApi, subjectsApi, classesApi } from '@/lib/api';
-import { Search, Plus, Trash2, X, BookOpen, Upload, Download, FileSpreadsheet, CheckCircle } from 'lucide-react';
+import { Search, Plus, Trash2, X, BookOpen, Upload, Download, FileSpreadsheet, CheckCircle, Edit2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
@@ -18,6 +18,7 @@ interface Teacher {
   id: string;
   teacherNo: string;
   name: string;
+  phone?: string;
   userId: string;
   user: { id: string; name: string; account: string; status: string };
   teacherClasses?: { class: { id: string; name: string; grade: { id: string; name: string } }; subject: { id: string; name: string } }[];
@@ -33,14 +34,30 @@ export default function Teachers() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Teacher | null>(null);
-  const [formData, setFormData] = useState({ teacherNo: '', name: '' });
+  const [formData, setFormData] = useState({ teacherNo: '', name: '', phone: '' });
   const [assignData, setAssignData] = useState({ classId: '', subjectId: '' });
   const [error, setError] = useState('');
+  const [formErrors, setFormErrors] = useState<{ phone?: string }>({});
   const [importData, setImportData] = useState<{
     file: File | null;
     preview: any[];
     errors: { row: number; message: string }[];
   }>({ file: null, preview: [], errors: [] });
+
+  const validatePhone = (phone: string) => {
+    if (!phone) return true;
+    const phoneRegex = /^1[3-9]\d{9}$/;
+    return phoneRegex.test(phone);
+  };
+
+  const validateForm = () => {
+    const errors: { phone?: string } = {};
+    if (formData.phone && !validatePhone(formData.phone)) {
+      errors.phone = '请输入正确的手机号（11位数字，以1开头）';
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const { data: teachers, isLoading } = useQuery({
     queryKey: ['teachers', searchText],
@@ -67,12 +84,21 @@ export default function Teachers() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: { teacherNo: string; name: string }) => teachersApi.create(data),
+    mutationFn: (data: { teacherNo: string; name: string; phone?: string }) => teachersApi.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
       closeModal();
     },
     onError: (err: any) => setError(err.response?.data?.message || '创建失败'),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; phone?: string } }) => teachersApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['teachers'] });
+      closeModal();
+    },
+    onError: (err: any) => setError(err.response?.data?.message || '更新失败'),
   });
 
   const deleteMutation = useMutation({
@@ -93,19 +119,32 @@ export default function Teachers() {
 
   const openCreateModal = () => {
     setSelectedTeacher(null);
-    setFormData({ teacherNo: '', name: '' });
+    setFormData({ teacherNo: '', name: '', phone: '' });
+    setError('');
+    setShowModal(true);
+  };
+
+  const openEditModal = (teacher: Teacher) => {
+    setSelectedTeacher(teacher);
+    setFormData({ teacherNo: teacher.teacherNo, name: teacher.name, phone: teacher.phone || '' });
     setError('');
     setShowModal(true);
   };
 
   const closeModal = () => {
     setShowModal(false);
+    setSelectedTeacher(null);
     setError('');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    if (!validateForm()) return;
+    if (selectedTeacher) {
+      updateMutation.mutate({ id: selectedTeacher.id, data: { name: formData.name, phone: formData.phone } });
+    } else {
+      createMutation.mutate(formData);
+    }
   };
 
   const handleDelete = () => {
@@ -230,6 +269,7 @@ export default function Teachers() {
               <tr className="border-b border-ds-border bg-ds-surface">
                 <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg-muted">工号</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg-muted">姓名</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg-muted">手机号</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg-muted">任教班级</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg-muted">班主任</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg-muted">状态</th>
@@ -241,6 +281,7 @@ export default function Teachers() {
                 <tr key={teacher.id} className="border-b border-ds-divider transition-colors hover:bg-ds-surface">
                   <td className="px-4 py-3 text-sm text-ds-fg tabular-nums">{teacher.teacherNo}</td>
                   <td className="px-4 py-3 text-sm font-medium text-ds-fg">{teacher.name}</td>
+                  <td className="px-4 py-3 text-sm text-ds-fg-muted">{teacher.phone || '-'}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       {teacher.teacherClasses?.slice(0, 3).map((tc, i) => (
@@ -261,6 +302,13 @@ export default function Teachers() {
                   <td className="px-4 py-3">{getStatusBadge(teacher.user?.status || 'ACTIVE')}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => openEditModal(teacher)}
+                        className="rounded p-1.5 text-ds-fg-muted transition-colors hover:bg-ds-primary/20 hover:text-ds-primary focus:outline-none focus:ring-2 focus:ring-ds-primary/20"
+                        title="编辑"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
                       <button
                         onClick={() => { setSelectedTeacher(teacher); setAssignData({ classId: '', subjectId: '' }); setShowAssignModal(true); }}
                         className="rounded p-1.5 text-ds-fg-muted transition-colors hover:bg-ds-primary/20 hover:text-ds-primary focus:outline-none focus:ring-2 focus:ring-ds-primary/20"
@@ -288,22 +336,28 @@ export default function Teachers() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ds-overlay/50 backdrop-blur-sm">
           <div className="w-full max-w-md glass-card p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-ds-fg">新增教师</h2>
+              <h2 className="text-lg font-semibold text-ds-fg">{selectedTeacher ? '编辑教师' : '新增教师'}</h2>
               <button onClick={closeModal} className="text-ds-fg-muted transition-colors hover:text-ds-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && <div className="rounded-md bg-ds-danger/10 px-4 py-3 text-sm text-ds-danger">{error}</div>}
               <div>
                 <label className="mb-1.5 block text-sm text-ds-fg-muted">工号 *</label>
-                <input type="text" value={formData.teacherNo} onChange={(e) => setFormData({ ...formData, teacherNo: e.target.value })} className="w-full rounded-md border border-ds-border bg-ds-surface px-4 py-2.5 text-ds-fg outline-none transition-colors focus:border-ds-primary focus:ring-2 focus:ring-ds-primary/20" required />
+                <input type="text" value={formData.teacherNo} onChange={(e) => setFormData({ ...formData, teacherNo: e.target.value })} disabled={!!selectedTeacher} className="w-full rounded-md border border-ds-border bg-ds-surface px-4 py-2.5 text-ds-fg outline-none transition-colors focus:border-ds-primary focus:ring-2 focus:ring-ds-primary/20 disabled:opacity-50 disabled:cursor-not-allowed" required />
+                {selectedTeacher && <p className="mt-1 text-xs text-ds-fg-muted">工号不可修改</p>}
               </div>
               <div>
                 <label className="mb-1.5 block text-sm text-ds-fg-muted">姓名 *</label>
                 <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="w-full rounded-md border border-ds-border bg-ds-surface px-4 py-2.5 text-ds-fg outline-none transition-colors focus:border-ds-primary focus:ring-2 focus:ring-ds-primary/20" required />
               </div>
+              <div>
+                <label className="mb-1.5 block text-sm text-ds-fg-muted">手机号</label>
+                <input type="tel" value={formData.phone} onChange={(e) => { setFormData({ ...formData, phone: e.target.value }); setFormErrors({ ...formErrors, phone: undefined }); }} placeholder="请输入手机号" className={`w-full rounded-md border bg-ds-surface px-4 py-2.5 text-ds-fg outline-none transition-colors focus:ring-2 ${formErrors.phone ? 'border-ds-danger focus:border-ds-danger focus:ring-ds-danger/20' : 'border-ds-border focus:border-ds-primary focus:ring-ds-primary/20'}`} />
+                {formErrors.phone && <p className="mt-1 text-xs text-ds-danger">{formErrors.phone}</p>}
+              </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={closeModal} className="flex-1 rounded-md border border-ds-border px-4 py-2.5 text-sm text-ds-fg transition-colors hover:bg-ds-surface-2 focus:outline-none focus:ring-2 focus:ring-ds-primary/20">取消</button>
-                <button type="submit" disabled={createMutation.isPending} className="flex-1 rounded-md bg-ds-primary px-4 py-2.5 text-sm text-white transition-colors hover:bg-ds-primary/90 focus:outline-none focus:ring-2 focus:ring-ds-primary/20 disabled:opacity-50">{createMutation.isPending ? '保存中...' : '保存'}</button>
+                <button type="submit" disabled={createMutation.isPending || updateMutation.isPending} className="flex-1 rounded-md bg-ds-primary px-4 py-2.5 text-sm text-white transition-colors hover:bg-ds-primary/90 focus:outline-none focus:ring-2 focus:ring-ds-primary/20 disabled:opacity-50">{createMutation.isPending || updateMutation.isPending ? '保存中...' : '保存'}</button>
               </div>
             </form>
           </div>

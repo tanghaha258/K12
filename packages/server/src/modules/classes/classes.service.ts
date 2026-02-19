@@ -35,6 +35,13 @@ export class ClassesService {
       where,
       include: {
         grades: true,
+        teachers: {
+          select: {
+            id: true,
+            name: true,
+            teacherNo: true,
+          },
+        },
         _count: {
           select: { students: true },
         },
@@ -87,7 +94,16 @@ export class ClassesService {
     return this.prisma.classes.update({
       where: { id },
       data: updateClassDto,
-      include: { grades: true },
+      include: {
+        grades: true,
+        teachers: {
+          select: {
+            id: true,
+            name: true,
+            teacherNo: true,
+          },
+        },
+      },
     });
   }
 

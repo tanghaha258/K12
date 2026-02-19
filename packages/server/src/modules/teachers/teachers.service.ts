@@ -43,6 +43,7 @@ export class TeachersService {
           userId: user.id,
           teacherNo: createTeacherDto.teacherNo,
           name: createTeacherDto.name,
+          phone: createTeacherDto.phone,
           updatedAt: new Date(),
         },
         include: {
@@ -73,19 +74,24 @@ export class TeachersService {
             subjects: true,
           },
         },
+        classes: { include: { grades: true } },
       },
     }).then(teachers => teachers.map(teacher => ({
       id: teacher.id,
       teacherNo: teacher.teacherNo,
       name: teacher.name,
+      phone: teacher.phone,
       user: teacher.users,
-      classes: teacher.teacher_classes.map(tc => ({
+      teacherClasses: teacher.teacher_classes.map(tc => ({
         id: tc.id,
         classId: tc.classId,
-        className: tc.classes?.name,
-        gradeName: tc.classes?.grades?.name,
-        subjectId: tc.subjectId,
-        subjectName: tc.subjects?.name,
+        class: tc.classes,
+        subject: tc.subjects,
+      })),
+      managedClasses: teacher.classes.map(c => ({
+        id: c.id,
+        name: c.name,
+        grade: c.grades,
       })),
     })));
   }

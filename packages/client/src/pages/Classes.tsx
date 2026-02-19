@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { gradesApi, classesApi } from '@/lib/api';
+import { gradesApi, classesApi, teachersApi } from '@/lib/api';
 import { Plus, Edit2, Trash2, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
@@ -19,11 +19,18 @@ interface Grade {
   name: string;
 }
 
+interface Teacher {
+  id: string;
+  teacherNo: string;
+  name: string;
+}
+
 interface ClassItem {
   id: string;
   name: string;
   gradeId: string;
-  grade: { id: string; name: string };
+  grades: { id: string; name: string };
+  teachers?: { id: string; name: string; teacherNo: string };
   _count?: { students: number };
 }
 
@@ -32,11 +39,13 @@ export default function Classes() {
   const [selectedGradeId, setSelectedGradeId] = useState<string>('');
   const [showModal, setShowModal] = useState(false);
   const [editingClass, setEditingClass] = useState<ClassItem | null>(null);
-  const [formData, setFormData] = useState({ name: '', gradeId: '' });
+  const [formData, setFormData] = useState({ name: '', gradeId: '', headTeacherId: '' });
   const [error, setError] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<ClassItem | null>(null);
+  const [teacherSearch, setTeacherSearch] = useState('');
+  const [showTeacherDropdown, setShowTeacherDropdown] = useState(false);
 
-  const { data: grades, isLoading: gradesLoading, error: gradesError } = useQuery({
+  const { data: grades, isLoading: gradesLoading } = useQuery({
     queryKey: ['grades'],
     queryFn: async () => {
       const res = await gradesApi.list();
@@ -44,7 +53,20 @@ export default function Classes() {
     },
   });
 
-  const { data: classes, isLoading: classesLoading, error: classesError } = useQuery({
+  const { data: teachers } = useQuery({
+    queryKey: ['teachers'],
+    queryFn: async () => {
+      const res = await teachersApi.list();
+      return res.data as Teacher[];
+    },
+  });
+
+  const filteredTeachers = teachers?.filter((teacher) =>
+    teacher.name.toLowerCase().includes(teacherSearch.toLowerCase()) ||
+    teacher.teacherNo.toLowerCase().includes(teacherSearch.toLowerCase())
+  );
+
+  const { data: classes, isLoading: classesLoading } = useQuery({
     queryKey: ['classes', selectedGradeId],
     queryFn: async () => {
       const res = await classesApi.list(selectedGradeId ? { gradeId: selectedGradeId } : undefined);
@@ -78,14 +100,18 @@ export default function Classes() {
 
   const openCreateModal = () => {
     setEditingClass(null);
-    setFormData({ name: '', gradeId: selectedGradeId || grades?.[0]?.id || '' });
+    setFormData({ name: '', gradeId: selectedGradeId || grades?.[0]?.id || '', headTeacherId: '' });
     setError('');
     setShowModal(true);
   };
 
   const openEditModal = (classItem: ClassItem) => {
     setEditingClass(classItem);
-    setFormData({ name: classItem.name, gradeId: classItem.gradeId });
+    setFormData({
+      name: classItem.name,
+      gradeId: classItem.gradeId,
+      headTeacherId: classItem.teachers?.id || '',
+    });
     setError('');
     setShowModal(true);
   };
@@ -99,9 +125,13 @@ export default function Classes() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingClass) {
-      updateMutation.mutate({ id: editingClass.id, data: { name: formData.name } });
+      const updateData: any = { name: formData.name };
+      if (formData.headTeacherId) {
+        updateData.headTeacherId = formData.headTeacherId;
+      }
+      updateMutation.mutate({ id: editingClass.id, data: updateData });
     } else {
-      createMutation.mutate(formData);
+      createMutation.mutate({ name: formData.name, gradeId: formData.gradeId });
     }
   };
 
@@ -113,7 +143,6 @@ export default function Classes() {
   };
 
   const isLoading = gradesLoading || classesLoading;
-  const hasError = gradesError || classesError;
 
   return (
     <div className="space-y-6">
@@ -147,13 +176,6 @@ export default function Classes() {
       <div className="surface-card overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center text-ds-fg-muted">加载中...</div>
-        ) : hasError ? (
-          <div className="p-8 text-center text-ds-danger">
-            加载失败，请刷新页面重试
-            <p className="mt-2 text-xs text-ds-fg-muted">
-              {String(gradesError || classesError)}
-            </p>
-          </div>
         ) : classes?.length === 0 ? (
           <div className="p-8 text-center text-ds-fg-muted">暂无班级数据</div>
         ) : (
@@ -162,6 +184,7 @@ export default function Classes() {
               <tr className="border-b border-ds-border bg-ds-surface">
                 <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg-muted">班级名称</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg-muted">所属年级</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg-muted">班主任</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg-muted">学生数</th>
                 <th className="px-4 py-3 text-right text-sm font-medium text-ds-fg-muted">操作</th>
               </tr>
@@ -173,7 +196,10 @@ export default function Classes() {
                   className="border-b border-ds-divider transition-colors hover:bg-ds-surface"
                 >
                   <td className="px-4 py-3 text-sm font-medium text-ds-fg">{classItem.name}</td>
-                  <td className="px-4 py-3 text-sm text-ds-fg-muted">{classItem.grade?.name || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-ds-fg-muted">{classItem.grades?.name || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-ds-fg-muted">
+                    {classItem.teachers ? `${classItem.teachers.name} (${classItem.teachers.teacherNo})` : '未分配'}
+                  </td>
                   <td className="px-4 py-3 text-sm text-ds-fg-muted tabular-nums">
                     {classItem._count?.students || 0}
                   </td>
@@ -247,6 +273,74 @@ export default function Classes() {
                   className="w-full rounded-md border border-ds-border bg-ds-surface px-4 py-2.5 text-ds-fg outline-none transition-colors placeholder:text-ds-fg-subtle focus:border-ds-primary focus:ring-2 focus:ring-ds-primary/20"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm text-ds-fg-muted">班主任</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.headTeacherId ? teachers?.find(t => t.id === formData.headTeacherId)?.name + ' (' + teachers?.find(t => t.id === formData.headTeacherId)?.teacherNo + ')' : teacherSearch}
+                    onChange={(e) => {
+                      setTeacherSearch(e.target.value);
+                      setShowTeacherDropdown(true);
+                      if (!e.target.value) {
+                        setFormData({ ...formData, headTeacherId: '' });
+                      }
+                    }}
+                    onFocus={() => setShowTeacherDropdown(true)}
+                    placeholder="搜索教师姓名或工号..."
+                    className="w-full rounded-md border border-ds-border bg-ds-surface px-4 py-2.5 text-ds-fg outline-none transition-colors placeholder:text-ds-fg-subtle focus:border-ds-primary focus:ring-2 focus:ring-ds-primary/20"
+                  />
+                  {formData.headTeacherId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, headTeacherId: '' });
+                        setTeacherSearch('');
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-ds-fg-muted hover:text-ds-fg"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                {showTeacherDropdown && (
+                  <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-ds-border bg-ds-surface shadow-lg">
+                    <div className="p-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData({ ...formData, headTeacherId: '' });
+                          setTeacherSearch('');
+                          setShowTeacherDropdown(false);
+                        }}
+                        className="w-full rounded px-3 py-2 text-left text-sm text-ds-fg-muted hover:bg-ds-surface-2"
+                      >
+                        不分配班主任
+                      </button>
+                      {filteredTeachers?.map((teacher) => (
+                        <button
+                          key={teacher.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, headTeacherId: teacher.id });
+                            setTeacherSearch('');
+                            setShowTeacherDropdown(false);
+                          }}
+                          className="w-full rounded px-3 py-2 text-left text-sm text-ds-fg hover:bg-ds-surface-2"
+                        >
+                          {teacher.name} ({teacher.teacherNo})
+                        </button>
+                      ))}
+                      {filteredTeachers?.length === 0 && teacherSearch && (
+                        <div className="px-3 py-2 text-sm text-ds-fg-muted">
+                          未找到匹配的教师
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 pt-2">
