@@ -13,6 +13,8 @@ import DataScopes from '@/pages/DataScopes';
 import UserManagement from '@/pages/Users';
 import Roles from '@/pages/Roles';
 import Dict from '@/pages/Dict';
+import Exams from '@/pages/Exams';
+import Analysis from '@/pages/Analysis';
 
 function App() {
   const { isAuthenticated } = useAuthStore();
@@ -39,6 +41,8 @@ function App() {
           <Route path="/users" element={<UserManagement />} />
           <Route path="/roles" element={<Roles />} />
           <Route path="/dict" element={<Dict />} />
+          <Route path="/exams" element={<Exams />} />
+          <Route path="/analysis" element={<Analysis />} />
           <Route path="/datascopes" element={<DataScopes />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -153,3 +153,59 @@ export const dormsApi = {
   listRooms: (buildingId?: string) => api.get('/dorms/rooms', { params: buildingId ? { buildingId } : undefined }),
   listBeds: (roomId?: string) => api.get('/dorms/beds', { params: roomId ? { roomId } : undefined }),
 };
+
+export const examsApi = {
+  list: (params?: { gradeId?: string; type?: string; schoolYear?: string; status?: string }) =>
+    api.get('/exams', { params }),
+  get: (id: string) => api.get(`/exams/${id}`),
+  getStatistics: (id: string) => api.get(`/exams/${id}/statistics`),
+  create: (data: {
+    name: string;
+    type: string;
+    term: string;
+    schoolYear: string;
+    gradeId: string;
+    subjects?: { subjectId: string; maxScore: number; weight?: number; isStat?: boolean }[];
+  }) => api.post('/exams', data),
+  update: (id: string, data: Partial<{ name: string; type: string; term: string; schoolYear: string; status: string }>) =>
+    api.patch(`/exams/${id}`, data),
+  delete: (id: string) => api.delete(`/exams/${id}`),
+  addSubject: (examId: string, data: { subjectId: string; maxScore: number; weight?: number; isStat?: boolean }) =>
+    api.post(`/exams/${examId}/subjects`, data),
+  removeSubject: (examId: string, subjectId: string) =>
+    api.delete(`/exams/${examId}/subjects/${subjectId}`),
+  publish: (id: string) => api.post(`/exams/${id}/publish`),
+  unpublish: (id: string) => api.post(`/exams/${id}/unpublish`),
+};
+
+export const scoresApi = {
+  list: (params?: { examId?: string; studentId?: string; subjectId?: string; classId?: string; gradeId?: string }) =>
+    api.get('/scores', { params }),
+  get: (id: string) => api.get(`/scores/${id}`),
+  getAnalysis: (params: { examId: string; subjectId?: string; classId?: string }) =>
+    api.get('/scores/analysis', { params }),
+  create: (data: { studentId: string; examId: string; subjectId: string; rawScore: number; assignedScore?: number; isAbsent?: boolean }) =>
+    api.post('/scores', data),
+  batchCreate: (data: { examId: string; subjectId: string; scores: { studentId: string; rawScore: number; isAbsent?: boolean }[] }) =>
+    api.post('/scores/batch', data),
+  update: (id: string, data: Partial<{ rawScore: number; assignedScore: number; isAbsent: boolean }>) =>
+    api.patch(`/scores/${id}`, data),
+  delete: (id: string) => api.delete(`/scores/${id}`),
+  calculateRanks: (examId: string, subjectId?: string) =>
+    api.post(`/scores/ranks/${examId}`, null, { params: subjectId ? { subjectId } : undefined }),
+};
+
+export const analysisApi = {
+  getStatistics: (params: { examId: string; subjectId?: string; classId?: string }) =>
+    api.get('/analysis/statistics', { params }),
+  getClassComparison: (params: { examId: string; subjectId?: string; classId?: string }) =>
+    api.get('/analysis/class-comparison', { params }),
+  getProgress: (params: { currentExamId: string; previousExamId: string; classId?: string }) =>
+    api.get('/analysis/progress', { params }),
+  getCriticalStudents: (params: { examId: string; lineType?: string; range?: number }) =>
+    api.get('/analysis/critical-students', { params }),
+  getSubjectBalance: (params: { examId: string; studentId?: string; classId?: string; threshold?: number }) =>
+    api.get('/analysis/subject-balance', { params }),
+  getRadarData: (params: { examId: string; subjectId?: string; classId?: string }) =>
+    api.get('/analysis/radar', { params }),
+};

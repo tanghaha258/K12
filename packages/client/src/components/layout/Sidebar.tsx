@@ -14,6 +14,7 @@ import {
   ChevronDown,
   UsersRound,
   FileSpreadsheet,
+  BarChart3,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -67,9 +68,16 @@ const menuItems: MenuItem[] = [
   },
   {
     icon: FileSpreadsheet,
-    label: '考务与成绩',
+    label: '考务中心',
     children: [
-      { path: '/exams', label: '考务中心' },
+      { path: '/exams', label: '考试管理' },
+    ],
+  },
+  {
+    icon: BarChart3,
+    label: '成绩分析',
+    children: [
+      { path: '/analysis', label: '综合分析' },
     ],
   },
   {
