@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateScoreSegmentDto, UpdateScoreSegmentDto, QueryScoreSegmentDto } from './dto/score-segment.dto';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class ScoreSegmentsService {
@@ -65,28 +66,30 @@ export class ScoreSegmentsService {
     });
 
     if (!segment) {
-      throw new NotFoundException('分段规则不存�?);
+      throw new NotFoundException('分段规则不存在');
     }
 
     return segment;
   }
 
   async create(createDto: CreateScoreSegmentDto) {
-    // 检查年级是否存�?    const grade = await this.prisma.grades.findUnique({
+    // 检查年级是否存在
+    const grade = await this.prisma.grades.findUnique({
       where: { id: createDto.gradeId },
     });
 
     if (!grade) {
-      throw new NotFoundException('年级不存�?);
+      throw new NotFoundException('年级不存在');
     }
 
-    // 如果指定了科目，检查科目是否存�?    if (createDto.subjectId) {
+    // 如果指定了科目，检查科目是否存在
+    if (createDto.subjectId) {
       const subject = await this.prisma.subjects.findUnique({
         where: { id: createDto.subjectId },
       });
 
       if (!subject) {
-        throw new NotFoundException('科目不存�?);
+        throw new NotFoundException('科目不存在');
       }
     }
 
@@ -102,7 +105,11 @@ export class ScoreSegmentsService {
     }
 
     return this.prisma.score_segments.create({
-      data: createDto,
+      data: {
+        ...createDto,
+        id: uuidv4(),
+        updatedAt: new Date(),
+      },
       include: {
         grades: {
           select: {
@@ -127,7 +134,7 @@ export class ScoreSegmentsService {
     });
 
     if (!segment) {
-      throw new NotFoundException('分段规则不存�?);
+      throw new NotFoundException('分段规则不存在');
     }
 
     // 如果设置为默认规则，先将同年级同科目的其他规则设为非默认
@@ -169,7 +176,7 @@ export class ScoreSegmentsService {
     });
 
     if (!segment) {
-      throw new NotFoundException('分段规则不存�?);
+      throw new NotFoundException('分段规则不存在');
     }
 
     return this.prisma.score_segments.delete({
@@ -195,7 +202,8 @@ export class ScoreSegmentsService {
     return this.prisma.score_segments.findFirst({
       where,
       orderBy: {
-        subjectId: 'desc', // 优先返回科目特定的规�?      },
+        subjectId: 'desc', // 优先返回科目特定的规则
+      },
     });
   }
 }

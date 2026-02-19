@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateTeacherDto, UpdateTeacherDto, AssignClassDto, QueryTeacherDto } from './dto/teacher.dto';
 import * as bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class TeachersService {
@@ -25,20 +26,24 @@ export class TeachersService {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.users.create({
         data: {
+          id: uuidv4(),
           account: createTeacherDto.teacherNo,
           password: hashedPassword,
           name: createTeacherDto.name,
           role: 'SUBJECT_TEACHER',
-          roleId: teacherRole?.id,
+          roleId: teacherRole?.id || '',
           status: 'ACTIVE',
+          updatedAt: new Date(),
         },
       });
 
       const teacher = await tx.teachers.create({
         data: {
+          id: uuidv4(),
           userId: user.id,
           teacherNo: createTeacherDto.teacherNo,
           name: createTeacherDto.name,
+          updatedAt: new Date(),
         },
         include: {
           users: { select: { id: true, name: true, account: true, status: true } },
@@ -69,7 +74,20 @@ export class TeachersService {
           },
         },
       },
-    });
+    }).then(teachers => teachers.map(teacher => ({
+      id: teacher.id,
+      teacherNo: teacher.teacherNo,
+      name: teacher.name,
+      user: teacher.users,
+      classes: teacher.teacher_classes.map(tc => ({
+        id: tc.id,
+        classId: tc.classId,
+        className: tc.classes?.name,
+        gradeName: tc.classes?.grades?.name,
+        subjectId: tc.subjectId,
+        subjectName: tc.subjects?.name,
+      })),
+    })));
   }
 
   async findOne(id: string) {
@@ -90,7 +108,20 @@ export class TeachersService {
       throw new NotFoundException('教师不存在');
     }
 
-    return teacher;
+    return {
+      id: teacher.id,
+      teacherNo: teacher.teacherNo,
+      name: teacher.name,
+      user: teacher.users,
+      classes: teacher.teacher_classes.map(tc => ({
+        id: tc.id,
+        classId: tc.classId,
+        className: tc.classes?.name,
+        gradeName: tc.classes?.grades?.name,
+        subjectId: tc.subjectId,
+        subjectName: tc.subjects?.name,
+      })),
+    };
   }
 
   async update(id: string, updateTeacherDto: UpdateTeacherDto) {
@@ -174,6 +205,7 @@ export class TeachersService {
 
     return this.prisma.teacher_classes.create({
       data: {
+        id: uuidv4(),
         teacherId: id,
         classId: assignClassDto.classId,
         subjectId: assignClassDto.subjectId,
@@ -200,6 +232,32 @@ export class TeachersService {
         classId,
         subjectId,
       },
+    });
+
+    return { success: true };
+  }
+
+  async setAsHeadTeacher(id: string, classId: string) {
+    const teacher = await this.prisma.teachers.findUnique({
+      where: { id },
+    });
+
+    if (!teacher) {
+      throw new NotFoundException('教师不存在');
+    }
+
+    const classEntity = await this.prisma.classes.findUnique({
+      where: { id: classId },
+    });
+
+    if (!classEntity) {
+      throw new NotFoundException('班级不存在');
+    }
+
+    // 更新班级的班主任
+    await this.prisma.classes.update({
+      where: { id: classId },
+      data: { headTeacherId: id },
     });
 
     return { success: true };

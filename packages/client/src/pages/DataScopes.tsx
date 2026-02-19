@@ -124,7 +124,7 @@ export default function DataScopes() {
   const { data: subjects } = useQuery<Subject[]>({
     queryKey: ['subjects'],
     queryFn: async () => {
-      const res = await api.get('/subjects');
+      const res = await api.get('/dict/subjects/all');
       return res.data;
     },
   });
@@ -137,7 +137,7 @@ export default function DataScopes() {
     queryKey: ['datascope', selectedUserId],
     queryFn: async () => {
       if (!selectedUserId) return { scopes: [], grouped: { grades: [], classes: [], subjects: [] } };
-      const res = await api.get(`/datascope/user/${selectedUserId}`);
+      const res = await api.get(`/datascopes/user/${selectedUserId}`);
       return res.data;
     },
     enabled: !!selectedUserId,
@@ -207,7 +207,7 @@ export default function DataScopes() {
   // 设置数据范围
   const setScopesMutation = useMutation({
     mutationFn: ({ userId, scopes }: { userId: string; scopes: { scopeType: string; scopeId: string }[] }) =>
-      api.post(`/datascope/user/${userId}`, { scopes }),
+      api.post(`/datascopes/user/${userId}`, { scopes }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['datascope', selectedUserId] });
       alert('数据范围设置成功');

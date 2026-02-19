@@ -12,8 +12,8 @@ export class CreateStudentDto {
   @IsNotEmpty({ message: '姓名不能为空' })
   name: string;
 
-  @ApiProperty({ example: '�?, description: '性别', enum: ['�?, '�?] })
-  @IsIn(['�?, '�?], { message: '性别只能是男或女' })
+  @ApiProperty({ example: '男', description: '性别', enum: ['男', '女'] })
+  @IsIn(['男', '女'], { message: '性别只能是男或女' })
   gender: string;
 
   @ApiPropertyOptional({ example: '110101200001011234', description: '身份证号' })
@@ -35,7 +35,7 @@ export class CreateStudentDto {
   @IsNotEmpty()
   classId: string;
 
-  @ApiPropertyOptional({ example: 'A01', description: '座位�? })
+  @ApiPropertyOptional({ example: 'A01', description: '座位号' })
   @IsString()
   @IsOptional()
   seatNo?: string;
@@ -50,17 +50,17 @@ export class CreateStudentDto {
   @IsOptional()
   dormBedId?: string;
 
-  @ApiPropertyOptional({ example: '毓秀�?, description: '宿舍楼栋名称' })
+  @ApiPropertyOptional({ example: '毓秀楼', description: '宿舍楼栋名称' })
   @IsString()
   @IsOptional()
   dormBuilding?: string;
 
-  @ApiPropertyOptional({ example: '401', description: '宿舍房间�? })
+  @ApiPropertyOptional({ example: '401', description: '宿舍房间号' })
   @IsString()
   @IsOptional()
   dormRoom?: string;
 
-  @ApiPropertyOptional({ example: '2', description: '床位�? })
+  @ApiPropertyOptional({ example: '2', description: '床位号' })
   @IsString()
   @IsOptional()
   dormBed?: string;
@@ -82,8 +82,8 @@ export class UpdateStudentDto {
   @IsOptional()
   name?: string;
 
-  @ApiPropertyOptional({ example: '�?, description: '性别', enum: ['�?, '�?] })
-  @IsIn(['�?, '�?])
+  @ApiPropertyOptional({ example: '男', description: '性别', enum: ['男', '女'] })
+  @IsIn(['男', '女'])
   @IsOptional()
   gender?: string;
 
@@ -102,7 +102,7 @@ export class UpdateStudentDto {
   @IsOptional()
   classId?: string;
 
-  @ApiPropertyOptional({ example: 'A01', description: '座位�? })
+  @ApiPropertyOptional({ example: 'A01', description: '座位号' })
   @IsString()
   @IsOptional()
   seatNo?: string;
@@ -117,17 +117,17 @@ export class UpdateStudentDto {
   @IsOptional()
   dormBedId?: string;
 
-  @ApiPropertyOptional({ example: '毓秀�?, description: '宿舍楼栋名称' })
+  @ApiPropertyOptional({ example: '毓秀楼', description: '宿舍楼栋名称' })
   @IsString()
   @IsOptional()
   dormBuilding?: string;
 
-  @ApiPropertyOptional({ example: '401', description: '宿舍房间�? })
+  @ApiPropertyOptional({ example: '401', description: '宿舍房间号' })
   @IsString()
   @IsOptional()
   dormRoom?: string;
 
-  @ApiPropertyOptional({ example: '2', description: '床位�? })
+  @ApiPropertyOptional({ example: '2', description: '床位号' })
   @IsString()
   @IsOptional()
   dormBed?: string;
@@ -149,7 +149,7 @@ export class QueryStudentDto {
   @IsOptional()
   classId?: string;
 
-  @ApiPropertyOptional({ example: '�?, description: '搜索关键�? })
+  @ApiPropertyOptional({ example: '搜索关键词', description: '搜索关键词' })
   @IsString()
   @IsOptional()
   search?: string;

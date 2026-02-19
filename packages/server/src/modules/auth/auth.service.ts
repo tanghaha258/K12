@@ -58,4 +58,40 @@ export class AuthService {
       },
     };
   }
+
+  async getCurrentUser(userId: string) {
+    const user = await this.prisma.users.findUnique({
+      where: { id: userId },
+      include: {
+        roles: true,
+        students: {
+          include: {
+            grades: true,
+            classes: true,
+          },
+        },
+        teachers: {
+          include: {
+            teacher_classes: {
+              include: {
+                classes: true,
+                subjects: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('用户不存在');
+    }
+
+    const { password, ...result } = user;
+    return {
+      ...result,
+      roleName: user.roles?.name || user.role,
+      roleCode: user.roles?.code || user.role,
+    };
+  }
 }

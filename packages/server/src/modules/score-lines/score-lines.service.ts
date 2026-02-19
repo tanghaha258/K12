@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateScoreLineDto, UpdateScoreLineDto, QueryScoreLineDto, ScoreLineType } from './dto/score-line.dto';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class ScoreLinesService {
@@ -51,23 +52,28 @@ export class ScoreLinesService {
     });
 
     if (!line) {
-      throw new NotFoundException('线位配置不存�?);
+      throw new NotFoundException('线位配置不存在');
     }
 
     return line;
   }
 
   async create(createDto: CreateScoreLineDto) {
-    // 检查年级是否存�?    const grade = await this.prisma.grades.findUnique({
+    // 检查年级是否存在
+    const grade = await this.prisma.grades.findUnique({
       where: { id: createDto.gradeId },
     });
 
     if (!grade) {
-      throw new NotFoundException('年级不存�?);
+      throw new NotFoundException('年级不存在');
     }
 
     return this.prisma.score_lines.create({
-      data: createDto,
+      data: {
+        ...createDto,
+        id: uuidv4(),
+        updatedAt: new Date(),
+      },
       include: {
         grades: {
           select: {
@@ -85,7 +91,7 @@ export class ScoreLinesService {
     });
 
     if (!line) {
-      throw new NotFoundException('线位配置不存�?);
+      throw new NotFoundException('线位配置不存在');
     }
 
     return this.prisma.score_lines.update({
@@ -108,7 +114,7 @@ export class ScoreLinesService {
     });
 
     if (!line) {
-      throw new NotFoundException('线位配置不存�?);
+      throw new NotFoundException('线位配置不存在');
     }
 
     return this.prisma.score_lines.delete({
@@ -116,7 +122,8 @@ export class ScoreLinesService {
     });
   }
 
-  // 获取指定年级的线位配�?  async getLinesByGrade(gradeId: string) {
+  // 获取指定年级的线位配置
+  async getByGrade(gradeId: string) {
     return this.prisma.score_lines.findMany({
       where: {
         gradeId,
@@ -129,11 +136,11 @@ export class ScoreLinesService {
   }
 
   // 获取指定年级和类型的线位
-  async getLineByType(gradeId: string, type: ScoreLineType) {
+  async getByType(gradeId: string, type: string) {
     return this.prisma.score_lines.findFirst({
       where: {
         gradeId,
-        type,
+        type: type as any,
         isActive: true,
       },
     });

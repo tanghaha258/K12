@@ -53,7 +53,7 @@ export class UsersController {
   }
 
   @Patch(':id/status')
-  @ApiOperation({ summary: '更新用户状�? })
+  @ApiOperation({ summary: '更新用户状态' })
   async updateStatus(
     @Param('id') id: string,
     @Body() data: { status: string },

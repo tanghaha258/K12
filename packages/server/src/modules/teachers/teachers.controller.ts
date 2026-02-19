@@ -69,7 +69,7 @@ export class TeachersController {
   }
 
   @Put(':id/head-teacher/:classId')
-  @ApiOperation({ summary: '设为班主�? })
+  @ApiOperation({ summary: '设为班主任' })
   setAsHeadTeacher(@Param('id') id: string, @Param('classId') classId: string) {
     return this.teachersService.setAsHeadTeacher(id, classId);
   }

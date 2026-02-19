@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class UsersService {
@@ -91,10 +92,16 @@ export class UsersService {
           ...result,
           roleName: user.roles?.name || user.role,
           roleCode: user.roles?.code || user.role,
-          students: user.students ? {
-            ...user.students,
-            classId: user.students.classId,
+          // 转换字段名为前端期望的格式
+          student: user.students ? {
+            studentNo: user.students.studentNo,
             gradeId: user.students.gradeId,
+            classId: user.students.classId,
+            grade: user.students.grades,
+            class: user.students.classes,
+          } : undefined,
+          teacher: user.teachers ? {
+            teacherNo: user.teachers.teacherNo,
           } : undefined,
         };
       }),
@@ -128,18 +135,22 @@ export class UsersService {
 
           await this.prisma.users.create({
             data: {
+              id: uuidv4(),
               account: userData.studentNo,
               password: defaultPassword,
               name: userData.name,
               role: 'STUDENT',
               status: 'ACTIVE',
+              updatedAt: new Date(),
               students: {
                 create: {
+                  id: uuidv4(),
                   studentNo: userData.studentNo,
                   gender: userData.gender || 'male',
                   entryYear: userData.entryYear || new Date().getFullYear(),
                   gradeId: userData.gradeId,
                   classId: userData.classId,
+                  updatedAt: new Date(),
                 },
               },
             },
@@ -154,15 +165,19 @@ export class UsersService {
 
           await this.prisma.users.create({
             data: {
+              id: uuidv4(),
               account: userData.teacherNo,
               password: defaultPassword,
               name: userData.name,
               role: userData.role || 'SUBJECT_TEACHER',
               status: 'ACTIVE',
+              updatedAt: new Date(),
               teachers: {
                 create: {
+                  id: uuidv4(),
                   teacherNo: userData.teacherNo,
                   name: userData.name,
+                  updatedAt: new Date(),
                 },
               },
             },
@@ -268,27 +283,44 @@ export class UsersService {
           const grade = await this.prisma.grades.findUnique({
             where: { id: scope.scopeId },
           });
-          detail.grades = grade;
+          detail.grade = grade;
         } else if (scope.scopeType === 'CLASS') {
           const classData = await this.prisma.classes.findUnique({
             where: { id: scope.scopeId },
             include: { grades: true },
           });
-          detail.classes = classData;
+          detail.class = classData;
         } else if (scope.scopeType === 'SUBJECT') {
           const subject = await this.prisma.subjects.findUnique({
             where: { id: scope.scopeId },
           });
-          detail.subjects = subject;
+          detail.subject = subject;
         }
         
         return detail;
       })
     );
 
-    const { password, data_scopes, ...result } = user;
+    const { password, data_scopes, students, teachers, ...result } = user;
     return {
       ...result,
+      // 转换字段名为前端期望的格式
+      student: students ? {
+        studentNo: students.studentNo,
+        grade: students.grades,
+        class: students.classes,
+      } : undefined,
+      teacher: teachers ? {
+        teacherNo: teachers.teacherNo,
+        teacherClasses: teachers.teacher_classes?.map(tc => ({
+          class: {
+            id: tc.classes?.id,
+            name: tc.classes?.name,
+            grade: tc.classes?.grades,
+          },
+          subject: tc.subjects,
+        })),
+      } : undefined,
       dataScopes: dataScopesWithDetails,
       roleName: user.roles?.name || user.role,
       roleCode: user.roles?.code || user.role,

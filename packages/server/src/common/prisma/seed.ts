@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 
 const prisma = new PrismaClient();
 
@@ -19,11 +20,13 @@ async function main() {
   
   const admin = await prisma.users.create({
     data: {
+      id: uuidv4(),
       account: 'admin',
       password: hashedPassword,
       name: '系统管理员',
       role: 'ADMIN',
       status: 'ACTIVE',
+      updatedAt: new Date(),
     },
   });
 

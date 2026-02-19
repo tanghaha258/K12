@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateGradeDto, UpdateGradeDto, QueryGradeDto } from './dto/grade.dto';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class GradesService {
@@ -8,7 +9,11 @@ export class GradesService {
 
   async create(createGradeDto: CreateGradeDto) {
     return this.prisma.grades.create({
-      data: createGradeDto,
+      data: {
+        id: uuidv4(),
+        ...createGradeDto,
+        updatedAt: new Date(),
+      },
     });
   }
 

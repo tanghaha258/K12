@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { v4 as uuidv4 } from 'uuid';
 
 const DICT_TYPES = [
   { code: 'gender', name: '性别', description: '男、女' },
@@ -121,9 +122,12 @@ export class DictService {
 
     return this.prisma.subjects.create({
       data: {
+        id: uuidv4(),
         ...subjectData,
+        updatedAt: new Date(),
         subject_grades: gradeIds ? {
           create: gradeIds.map(gradeId => ({
+            id: uuidv4(),
             gradeId,
           })),
         } : undefined,
@@ -172,6 +176,7 @@ export class DictService {
         ...updateData,
         subject_grades: gradeIds ? {
           create: gradeIds.map(gradeId => ({
+            id: uuidv4(),
             gradeId,
           })),
         } : undefined,
@@ -197,13 +202,12 @@ export class DictService {
       throw new NotFoundException('科目不存在');
     }
 
-    const teacherClasses = await this.prisma.teacher_classes.count({
+    await this.prisma.subject_grades.deleteMany({
       where: { subjectId: id },
     });
-    if (teacherClasses > 0) {
-      throw new BadRequestException('该科目下存在教师授课记录，无法删除');
-    }
 
-    return this.prisma.subjects.delete({ where: { id } });
+    return this.prisma.subjects.delete({
+      where: { id },
+    });
   }
 }

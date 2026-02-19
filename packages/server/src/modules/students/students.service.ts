@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException, BadRequestException }
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateStudentDto, UpdateStudentDto, QueryStudentDto } from './dto/student.dto';
 import * as bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class StudentsService {
@@ -13,21 +14,21 @@ export class StudentsService {
     });
 
     if (existingStudent) {
-      throw new ConflictException('学号已存�?);
+      throw new ConflictException('学号已存在');
     }
 
     const grade = await this.prisma.grades.findUnique({
       where: { id: createStudentDto.gradeId },
     });
     if (!grade) {
-      throw new NotFoundException('年级不存�?);
+      throw new NotFoundException('年级不存在');
     }
 
     const classEntity = await this.prisma.classes.findUnique({
       where: { id: createStudentDto.classId },
     });
     if (!classEntity) {
-      throw new NotFoundException('班级不存�?);
+      throw new NotFoundException('班级不存在');
     }
 
     // 处理宿舍关联
@@ -36,11 +37,11 @@ export class StudentsService {
 
     // 如果提供了宿舍楼栋和房间号，查找对应的宿舍ID
     if (createStudentDto.dormBuilding && createStudentDto.dormRoom) {
-      const building = await this.prisma.dormBuilding.findUnique({
+      const building = await this.prisma.dorm_buildings.findUnique({
         where: { name: createStudentDto.dormBuilding },
       });
       if (building) {
-        const room = await this.prisma.dormRoom.findFirst({
+        const room = await this.prisma.dorm_rooms.findFirst({
           where: {
             buildingId: building.id,
             roomNo: createStudentDto.dormRoom,
@@ -49,8 +50,9 @@ export class StudentsService {
         if (room) {
           dormRoomId = room.id;
           
-          // 如果提供了床位号，查找或创建对应的床�?          if (createStudentDto.dormBed) {
-            let bed = await this.prisma.dormBed.findFirst({
+          // 如果提供了床位号，查找或创建对应的床位
+          if (createStudentDto.dormBed) {
+            let bed = await this.prisma.dorm_beds.findFirst({
               where: {
                 roomId: room.id,
                 bedNo: createStudentDto.dormBed,
@@ -58,11 +60,13 @@ export class StudentsService {
             });
             // 如果床位不存在，自动创建
             if (!bed) {
-              bed = await this.prisma.dormBed.create({
+              bed = await this.prisma.dorm_beds.create({
                 data: {
+                  id: uuidv4(),
                   roomId: room.id,
                   bedNo: createStudentDto.dormBed,
                   status: 'empty',
+                  updatedAt: new Date(),
                 },
               });
             }
@@ -74,25 +78,28 @@ export class StudentsService {
 
     const hashedPassword = await bcrypt.hash(createStudentDto.studentNo, 10);
 
-    // 查找 STUDENT 角色�?ID
+    // 查找 STUDENT 角色的 ID
     const studentRole = await this.prisma.roles.findUnique({
       where: { code: 'STUDENT' },
     });
 
     return this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
+      const user = await tx.users.create({
         data: {
+          id: uuidv4(),
           account: createStudentDto.studentNo,
           password: hashedPassword,
           name: createStudentDto.name,
           role: 'STUDENT',
           roleId: studentRole?.id,
           status: 'ACTIVE',
+          updatedAt: new Date(),
         },
       });
 
       const student = await tx.students.create({
         data: {
+          id: uuidv4(),
           userId: user.id,
           studentNo: createStudentDto.studentNo,
           gender: createStudentDto.gender,
@@ -104,32 +111,37 @@ export class StudentsService {
           dormRoomId: dormRoomId,
           dormBedId: dormBedId,
           boardingType: createStudentDto.boardingType || 'day',
+          updatedAt: new Date(),
         },
         include: {
-          user: { select: { id: true, name: true, account: true } },
-          grade: true,
-          class: true,
-          dormRoom: {
+          users: { select: { id: true, name: true, account: true } },
+          grades: true,
+          classes: true,
+          dorm_rooms: {
             include: {
-              building: { select: { name: true } },
+              dorm_buildings: { select: { name: true } },
             },
           },
-          dormBed: true,
+          dorm_beds: true,
         },
       });
 
-      // 如果分配了床位，更新床位状�?      if (dormBedId) {
-        await tx.dormBed.update({
+      // 如果分配了床位，更新床位状态
+      if (dormBedId) {
+        await tx.dorm_beds.update({
           where: { id: dormBedId },
           data: { status: 'occupied', studentId: student.id },
         });
       }
 
-      // 为学生自动添加本班数据范�?      await tx.dataScope.create({
+      // 为学生自动添加本班数据范围
+      await tx.data_scopes.create({
         data: {
+          id: uuidv4(),
           userId: user.id,
           scopeType: 'class',
           scopeId: createStudentDto.classId,
+          updatedAt: new Date(),
         },
       });
 
@@ -151,32 +163,45 @@ export class StudentsService {
     if (query?.search) {
       where.OR = [
         { studentNo: { contains: query.search } },
-        { user: { name: { contains: query.search } } },
+        { users: { name: { contains: query.search } } },
       ];
     }
 
     const students = await this.prisma.students.findMany({
       where,
       include: {
-        user: { select: { id: true, name: true, account: true, status: true } },
-        grade: { select: { id: true, name: true } },
-        class: { select: { id: true, name: true } },
-        dormRoom: {
+        users: { select: { id: true, name: true, account: true, status: true } },
+        grades: { select: { id: true, name: true } },
+        classes: { select: { id: true, name: true } },
+        dorm_rooms: {
           include: {
-            building: { select: { name: true } },
+            dorm_buildings: { select: { name: true } },
           },
         },
-        dormBed: true,
+        dorm_beds: true,
       },
       orderBy: [{ gradeId: 'asc' }, { classId: 'asc' }, { studentNo: 'asc' }],
     });
 
-    // 格式化返回数据，包含宿舍信息
+    // 格式化返回数据，转换字段名为前端期望的格式
     return students.map(student => ({
-      ...students,
-      dormBuilding: student.dormRoom?.building?.name || null,
-      dormRoom: student.dormRoom?.roomNo || null,
-      dormBed: student.dormBed?.bedNo || null,
+      id: student.id,
+      studentNo: student.studentNo,
+      gender: student.gender,
+      idCard: student.idCard,
+      entryYear: student.entryYear,
+      gradeId: student.gradeId,
+      classId: student.classId,
+      seatNo: student.seatNo,
+      boardingType: student.boardingType,
+      user: student.users,
+      grade: student.grades,
+      class: student.classes,
+      dormBuilding: student.dorm_rooms?.dorm_buildings?.name || null,
+      dormRoom: student.dorm_rooms?.roomNo || null,
+      dormBed: student.dorm_beds?.bedNo || null,
+      createdAt: student.createdAt,
+      updatedAt: student.updatedAt,
     }));
   }
 
@@ -184,16 +209,16 @@ export class StudentsService {
     const student = await this.prisma.students.findUnique({
       where: { id },
       include: {
-        user: { select: { id: true, name: true, account: true, status: true, createdAt: true } },
-        grade: true,
-        class: true,
-        dormRoom: {
+        users: { select: { id: true, name: true, account: true, status: true, createdAt: true } },
+        grades: true,
+        classes: true,
+        dorm_rooms: {
           include: {
-            building: { select: { name: true } },
+            dorm_buildings: { select: { name: true } },
           },
         },
-        dormBed: true,
-        profileHistory: {
+        dorm_beds: true,
+        student_profile_history: {
           orderBy: { createdAt: 'desc' },
           take: 10,
         },
@@ -201,24 +226,38 @@ export class StudentsService {
     });
 
     if (!student) {
-      throw new NotFoundException('学生不存�?);
+      throw new NotFoundException('学生不存在');
     }
 
     return {
-      ...students,
-      dormBuilding: student.dormRoom?.building?.name || null,
-      dormRoom: student.dormRoom?.roomNo || null,
-      dormBed: student.dormBed?.bedNo || null,
+      id: student.id,
+      studentNo: student.studentNo,
+      gender: student.gender,
+      idCard: student.idCard,
+      entryYear: student.entryYear,
+      gradeId: student.gradeId,
+      classId: student.classId,
+      seatNo: student.seatNo,
+      boardingType: student.boardingType,
+      user: student.users,
+      grade: student.grades,
+      class: student.classes,
+      dormBuilding: student.dorm_rooms?.dorm_buildings?.name || null,
+      dormRoom: student.dorm_rooms?.roomNo || null,
+      dormBed: student.dorm_beds?.bedNo || null,
+      profileHistory: student.student_profile_history,
+      createdAt: student.createdAt,
+      updatedAt: student.updatedAt,
     };
   }
 
   async update(id: string, updateStudentDto: UpdateStudentDto, updatedBy: string) {
     const student = await this.prisma.students.findUnique({ 
       where: { id },
-      include: { dormBed: true },
+      include: { dorm_beds: true },
     });
     if (!student) {
-      throw new NotFoundException('学生不存�?);
+      throw new NotFoundException('学生不存在');
     }
 
     // 处理宿舍关联
@@ -234,13 +273,13 @@ export class StudentsService {
 
     // 如果提供了宿舍楼栋和房间号，查找对应的宿舍ID
     if (updateStudentDto.dormBuilding && updateStudentDto.dormRoom) {
-      const building = await this.prisma.dormBuilding.findUnique({
+      const building = await this.prisma.dorm_buildings.findUnique({
         where: { name: updateStudentDto.dormBuilding },
       });
       console.log('Found building:', building);
       
       if (building) {
-        const room = await this.prisma.dormRoom.findFirst({
+        const room = await this.prisma.dorm_rooms.findFirst({
           where: {
             buildingId: building.id,
             roomNo: updateStudentDto.dormRoom,
@@ -251,8 +290,9 @@ export class StudentsService {
         if (room) {
           dormRoomId = room.id;
           
-          // 如果提供了床位号，查找或创建对应的床�?          if (updateStudentDto.dormBed) {
-            let bed = await this.prisma.dormBed.findFirst({
+          // 如果提供了床位号，查找或创建对应的床位
+          if (updateStudentDto.dormBed) {
+            let bed = await this.prisma.dorm_beds.findFirst({
               where: {
                 roomId: room.id,
                 bedNo: updateStudentDto.dormBed,
@@ -262,11 +302,13 @@ export class StudentsService {
             
             // 如果床位不存在，自动创建
             if (!bed) {
-              bed = await this.prisma.dormBed.create({
+              bed = await this.prisma.dorm_beds.create({
                 data: {
+                  id: uuidv4(),
                   roomId: room.id,
                   bedNo: updateStudentDto.dormBed,
                   status: 'empty',
+                  updatedAt: new Date(),
                 },
               });
               console.log('Created bed:', bed);
@@ -286,28 +328,31 @@ export class StudentsService {
     console.log('Final dorm IDs:', { dormRoomId, dormBedId });
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      // 如果之前有床位，释放之前的床�?      if (student.dormBedId && student.dormBedId !== dormBedId) {
-        await tx.dormBed.update({
+      // 如果之前有床位，释放之前的床位
+      if (student.dormBedId && student.dormBedId !== dormBedId) {
+        await tx.dorm_beds.update({
           where: { id: student.dormBedId },
           data: { status: 'empty', studentId: null },
         });
       }
 
-      // 如果分配了新床位，更新新床位状�?      if (dormBedId && dormBedId !== student.dormBedId) {
-        const bed = await tx.dormBed.findUnique({
+      // 如果分配了新床位，更新新床位状态
+      if (dormBedId && dormBedId !== student.dormBedId) {
+        const bed = await tx.dorm_beds.findUnique({
           where: { id: dormBedId },
         });
         if (bed && bed.studentId && bed.studentId !== id) {
-          throw new BadRequestException('该床位已被其他学生占�?);
+          throw new BadRequestException('该床位已被其他学生占用');
         }
-        await tx.dormBed.update({
+        await tx.dorm_beds.update({
           where: { id: dormBedId },
           data: { status: 'occupied', studentId: id },
         });
       }
 
-      // 如果提供了姓名，更新 user �?      if (updateStudentDto.name) {
-        await tx.user.update({
+      // 如果提供了姓名，更新 users 表
+      if (updateStudentDto.name) {
+        await tx.users.update({
           where: { id: student.userId },
           data: { name: updateStudentDto.name },
         });
@@ -324,15 +369,15 @@ export class StudentsService {
           dormBedId,
         },
         include: {
-          user: { select: { id: true, name: true } },
-          grade: true,
-          class: true,
-          dormRoom: {
+          users: { select: { id: true, name: true } },
+          grades: true,
+          classes: true,
+          dorm_rooms: {
             include: {
-              building: { select: { name: true } },
+              dorm_buildings: { select: { name: true } },
             },
           },
-          dormBed: true,
+          dorm_beds: true,
         },
       });
 
@@ -340,8 +385,9 @@ export class StudentsService {
     });
 
     if (updateStudentDto.classId || updateStudentDto.seatNo || dormRoomId !== undefined || updateStudentDto.boardingType) {
-      await this.prisma.studentProfileHistory.create({
+      await this.prisma.student_profile_history.create({
         data: {
+          id: uuidv4(),
           studentId: id,
           term: new Date().getFullYear() + '-' + (new Date().getMonth() >= 8 ? '1' : '2'),
           classId: updateStudentDto.classId || student.classId,
@@ -357,29 +403,29 @@ export class StudentsService {
 
     return {
       ...updated,
-      dormBuilding: updated.dormRoom?.building?.name || null,
-      dormRoom: updated.dormRoom?.roomNo || null,
-      dormBed: updated.dormBed?.bedNo || null,
+      dormBuilding: updated.dorm_rooms?.dorm_buildings?.name || null,
+      dormRoom: updated.dorm_rooms?.roomNo || null,
+      dormBed: updated.dorm_beds?.bedNo || null,
     };
   }
 
   async remove(id: string) {
     const student = await this.prisma.students.findUnique({ where: { id } });
     if (!student) {
-      throw new NotFoundException('学生不存�?);
+      throw new NotFoundException('学生不存在');
     }
 
     return this.prisma.$transaction(async (tx) => {
       // 如果学生有床位，释放床位
       if (student.dormBedId) {
-        await tx.dormBed.update({
+        await tx.dorm_beds.update({
           where: { id: student.dormBedId },
           data: { status: 'empty', studentId: null },
         });
       }
 
       await tx.students.delete({ where: { id } });
-      await tx.user.delete({ where: { id: student.userId } });
+      await tx.users.delete({ where: { id: student.userId } });
       return { message: '删除成功' };
     });
   }

@@ -33,7 +33,7 @@ export class AssignClassDto {
 }
 
 export class QueryTeacherDto {
-  @ApiPropertyOptional({ example: '�?, description: '搜索关键�? })
+  @ApiPropertyOptional({ example: '搜索关键词', description: '搜索关键词' })
   @IsString()
   @IsOptional()
   search?: string;

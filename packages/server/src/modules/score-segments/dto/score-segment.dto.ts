@@ -1,107 +1,93 @@
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsNumber, IsOptional, IsBoolean, Min, Max } from 'class-validator';
 
 export class CreateScoreSegmentDto {
-  @ApiProperty({ description: '规则名称' })
+  @ApiProperty({ example: '默认分段', description: '规则名称' })
   @IsString()
+  @IsNotEmpty({ message: '规则名称不能为空' })
   name: string;
 
-  @ApiProperty({ description: '年级ID' })
+  @ApiProperty({ example: 'grade_id', description: '年级ID' })
   @IsString()
+  @IsNotEmpty({ message: '年级ID不能为空' })
   gradeId: string;
 
-  @ApiPropertyOptional({ description: '科目ID（可选，为空则适用于所有科目）' })
+  @ApiPropertyOptional({ example: 'subject_id', description: '科目ID（为空则适用所有科目）' })
   @IsString()
   @IsOptional()
   subjectId?: string;
 
-  @ApiProperty({ description: '优秀分数线（默认90�?, default: 90 })
+  @ApiProperty({ example: 90, description: '优秀分数线' })
   @IsNumber()
-  @Min(0)
-  @Max(100)
-  excellentMin: number = 90;
+  excellentMin: number;
 
-  @ApiProperty({ description: '良好分数线（默认80�?, default: 80 })
+  @ApiProperty({ example: 80, description: '良好分数线' })
   @IsNumber()
-  @Min(0)
-  @Max(100)
-  goodMin: number = 80;
+  goodMin: number;
 
-  @ApiProperty({ description: '及格分数线（默认60�?, default: 60 })
+  @ApiProperty({ example: 60, description: '及格分数线' })
   @IsNumber()
-  @Min(0)
-  @Max(100)
-  passMin: number = 60;
+  passMin: number;
 
-  @ApiProperty({ description: '低分分数线（默认59�?, default: 59 })
+  @ApiProperty({ example: 59, description: '低分分数线' })
   @IsNumber()
-  @Min(0)
-  @Max(100)
-  failMax: number = 59;
+  failMax: number;
 
-  @ApiPropertyOptional({ description: '是否为默认规�?, default: false })
+  @ApiPropertyOptional({ example: false, description: '是否为默认规则' })
   @IsBoolean()
   @IsOptional()
   isDefault?: boolean;
 }
 
 export class UpdateScoreSegmentDto {
-  @ApiPropertyOptional({ description: '规则名称' })
+  @ApiPropertyOptional({ example: '默认分段', description: '规则名称' })
   @IsString()
   @IsOptional()
   name?: string;
 
-  @ApiPropertyOptional({ description: '优秀分数�? })
+  @ApiPropertyOptional({ example: 90, description: '优秀分数线' })
   @IsNumber()
-  @Min(0)
-  @Max(100)
   @IsOptional()
   excellentMin?: number;
 
-  @ApiPropertyOptional({ description: '良好分数�? })
+  @ApiPropertyOptional({ example: 80, description: '良好分数线' })
   @IsNumber()
-  @Min(0)
-  @Max(100)
   @IsOptional()
   goodMin?: number;
 
-  @ApiPropertyOptional({ description: '及格分数�? })
+  @ApiPropertyOptional({ example: 60, description: '及格分数线' })
   @IsNumber()
-  @Min(0)
-  @Max(100)
   @IsOptional()
   passMin?: number;
 
-  @ApiPropertyOptional({ description: '低分分数�? })
+  @ApiPropertyOptional({ example: 59, description: '低分分数线' })
   @IsNumber()
-  @Min(0)
-  @Max(100)
   @IsOptional()
   failMax?: number;
 
-  @ApiPropertyOptional({ description: '是否为默认规�? })
+  @ApiPropertyOptional({ example: false, description: '是否为默认规则' })
   @IsBoolean()
   @IsOptional()
   isDefault?: boolean;
 
-  @ApiPropertyOptional({ description: '是否启用' })
+  @ApiPropertyOptional({ example: true, description: '是否启用' })
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
 }
 
 export class QueryScoreSegmentDto {
-  @ApiPropertyOptional({ description: '年级ID' })
+  @ApiPropertyOptional({ example: 'grade_id', description: '年级ID' })
   @IsString()
   @IsOptional()
   gradeId?: string;
 
-  @ApiPropertyOptional({ description: '科目ID' })
+  @ApiPropertyOptional({ example: 'subject_id', description: '科目ID' })
   @IsString()
   @IsOptional()
   subjectId?: string;
 
-  @ApiPropertyOptional({ description: '是否只查启用状�? })
+  @ApiPropertyOptional({ example: true, description: '是否启用' })
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;

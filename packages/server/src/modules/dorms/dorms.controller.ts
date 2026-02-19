@@ -17,7 +17,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class DormsController {
   constructor(private readonly dormsService: DormsService) {}
 
-  // ===== 宿舍楼管�?=====
+  // ===== 宿舍楼管理 =====
   @Get('buildings')
   async getBuildings() {
     return this.dormsService.getBuildings();
@@ -26,7 +26,7 @@ export class DormsController {
   @Post('buildings')
   async createBuilding(@Body() data: {
     name: string;
-    floors?: number;
+    floors: number;
     remark?: string;
   }) {
     return this.dormsService.createBuilding(data);

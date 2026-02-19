@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class DataScopeService {
@@ -42,9 +43,11 @@ export class DataScopeService {
     if (scopes.length > 0) {
       await this.prisma.data_scopes.createMany({
         data: scopes.map((s) => ({
+          id: uuidv4(),
           userId,
           scopeType: s.scopeType,
           scopeId: s.scopeId,
+          updatedAt: new Date(),
         })),
       });
     }

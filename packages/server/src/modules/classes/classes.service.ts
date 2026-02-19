@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { CreateClassDto, UpdateClassDto, QueryClassDto, AssignTeachersDto } from './dto/class.dto';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class ClassesService {
@@ -15,7 +16,11 @@ export class ClassesService {
     }
 
     return this.prisma.classes.create({
-      data: createClassDto,
+      data: {
+        id: uuidv4(),
+        ...createClassDto,
+        updatedAt: new Date(),
+      },
       include: { grades: true },
     });
   }
@@ -124,6 +129,7 @@ export class ClassesService {
     if (assignTeachersDto.teacherIds.length > 0) {
       await this.prisma.teacher_classes.createMany({
         data: assignTeachersDto.teacherIds.map((teacherId) => ({
+          id: uuidv4(),
           classId: id,
           teacherId,
           subjectId: assignTeachersDto.subjectId,

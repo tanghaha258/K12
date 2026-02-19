@@ -1,174 +1,45 @@
-import { Injectable, NotFoundException, BadRequestException, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma/prisma.service';
+import { v4 as uuidv4 } from 'uuid';
 
-// 系统预定义菜�?const SYSTEM_MENUS = [
-  {
-    id: 'dashboard',
-    name: '工作�?,
-    path: '/',
-    icon: 'LayoutDashboard',
-    permissions: ['view'],
-  },
-  {
-    id: 'grades',
-    name: '年级管理',
-    path: '/grades',
-    icon: 'GraduationCap',
-    permissions: ['view', 'create', 'edit', 'delete', 'import', 'export'],
-  },
-  {
-    id: 'classes',
-    name: '班级管理',
-    path: '/classes',
-    icon: 'School',
-    permissions: ['view', 'create', 'edit', 'delete', 'import', 'export'],
-  },
-  {
-    id: 'students',
-    name: '学生管理',
-    path: '/students',
-    icon: 'Users',
-    permissions: ['view', 'create', 'edit', 'delete', 'import', 'export'],
-  },
-  {
-    id: 'teachers',
-    name: '教师管理',
-    path: '/teachers',
-    icon: 'UserCog',
-    permissions: ['view', 'create', 'edit', 'delete', 'import', 'export'],
-  },
-  {
-    id: 'dorms',
-    name: '宿舍管理',
-    path: '/dorms',
-    icon: 'Building2',
-    permissions: ['view', 'create', 'edit', 'delete', 'import', 'export'],
-  },
-  {
-    id: 'users',
-    name: '用户管理',
-    path: '/users',
-    icon: 'Users',
-    permissions: ['view', 'create', 'edit', 'delete', 'import', 'reset-password'],
-  },
-  {
-    id: 'datascopes',
-    name: '数据权限',
-    path: '/datascopes',
-    icon: 'Shield',
-    permissions: ['view', 'edit'],
-  },
-  {
-    id: 'exams',
-    name: '考务中心',
-    path: '/exams',
-    icon: 'BookOpen',
-    permissions: ['view', 'create', 'edit', 'delete'],
-  },
-  {
-    id: 'moral',
-    name: '德育量化',
-    path: '/moral',
-    icon: 'ClipboardList',
-    permissions: ['view', 'create', 'edit', 'delete'],
-  },
-  {
-    id: 'settings',
-    name: '系统设置',
-    path: '/settings',
-    icon: 'Settings',
-    permissions: ['view', 'edit'],
-  },
-];
-
-// 系统内置角色定义
 const SYSTEM_ROLES = [
   {
+    name: '系统管理员',
     code: 'ADMIN',
-    name: '超级管理�?,
-    description: '系统最高权限，可管理所有功�?,
+    description: '系统超级管理员，拥有所有权限',
     permissions: ['*'],
   },
   {
+    name: '学校管理员',
     code: 'SCHOOL_ADMIN',
-    name: '学校管理�?,
-    description: '学校全部管理权限',
-    permissions: ['*'],
+    description: '学校管理员，管理学校基础数据',
+    permissions: ['users:read', 'users:write', 'grades:read', 'grades:write'],
   },
   {
+    name: '年级组长',
     code: 'GRADE_ADMIN',
-    name: '年级主任',
-    description: '年级管理权限，可查看和管理本年级数据',
-    permissions: [
-      'dashboard:view',
-      'grades:view',
-      'classes:view',
-      'classes:create',
-      'classes:edit',
-      'students:view',
-      'students:create',
-      'students:edit',
-      'teachers:view',
-      'dorms:view',
-      'dorms:create',
-      'dorms:edit',
-      'exams:view',
-      'exams:create',
-      'exams:edit',
-      'moral:view',
-      'moral:create',
-      'moral:edit',
-    ],
+    description: '年级组长，管理年级数据',
+    permissions: ['grades:read', 'classes:read', 'students:read'],
   },
   {
+    name: '班主任',
     code: 'CLASS_TEACHER',
-    name: '班主�?,
-    description: '班级管理权限，可查看和管理本班学�?,
-    permissions: [
-      'dashboard:view',
-      'classes:view',
-      'students:view',
-      'students:create',
-      'students:edit',
-      'dorms:view',
-      'exams:view',
-      'moral:view',
-      'moral:create',
-      'moral:edit',
-    ],
+    description: '班主任，管理班级学生',
+    permissions: ['classes:read', 'students:read', 'students:write'],
   },
   {
+    name: '任课教师',
     code: 'SUBJECT_TEACHER',
-    name: '科任老师',
-    description: '学科教学权限，可查看和录入成�?,
-    permissions: [
-      'dashboard:view',
-      'classes:view',
-      'students:view',
-      'exams:view',
-      'exams:create',
-      'exams:edit',
-    ],
-  },
-  {
-    code: 'STUDENT',
-    name: '学生',
-    description: '学生本人查看权限',
-    permissions: [
-      'dashboard:view',
-    ],
+    description: '任课教师，查看学生成绩',
+    permissions: ['students:read', 'scores:read'],
   },
 ];
 
 @Injectable()
-export class RolesService implements OnModuleInit {
+export class RolesService {
   constructor(private prisma: PrismaService) {}
 
-  async onModuleInit() {
-    await this.initSystemRoles();
-  }
-
-  // 初始化系统内置角�?  async initSystemRoles() {
+  async initSystemRoles() {
     for (const role of SYSTEM_ROLES) {
       const existing = await this.prisma.roles.findUnique({
         where: { code: role.code },
@@ -177,17 +48,17 @@ export class RolesService implements OnModuleInit {
       if (!existing) {
         await this.prisma.roles.create({
           data: {
+            id: uuidv4(),
             name: role.name,
             code: role.code,
             description: role.description,
             permissions: role.permissions,
             isSystem: true,
+            updatedAt: new Date(),
           },
         });
-        console.log(`�?Created system role: ${role.name}`);
       }
     }
-    console.log('🎉 System roles initialization completed');
   }
 
   async findAll() {
@@ -201,7 +72,7 @@ export class RolesService implements OnModuleInit {
       where: { id },
     });
     if (!role) {
-      throw new NotFoundException('角色不存�?);
+      throw new NotFoundException('角色不存在');
     }
     return role;
   }
@@ -212,41 +83,23 @@ export class RolesService implements OnModuleInit {
     description?: string;
     permissions?: string[];
   }) {
-    // 检�?code 是否已存�?    const existing = await this.prisma.roles.findUnique({
+    const existing = await this.prisma.roles.findUnique({
       where: { code: data.code },
     });
     if (existing) {
-      throw new BadRequestException('角色编码已存�?);
+      throw new BadRequestException('角色编码已存在');
     }
 
     return this.prisma.roles.create({
       data: {
+        id: uuidv4(),
         name: data.name,
         code: data.code,
         description: data.description,
         permissions: data.permissions || [],
+        updatedAt: new Date(),
       },
-    }) as any;
-  }
-
-  async copy(id: string, data: { name: string; code: string }) {
-    const sourceRole = await this.findById(id);
-
-    // 检�?code 是否已存�?    const existing = await this.prisma.roles.findUnique({
-      where: { code: data.code },
     });
-    if (existing) {
-      throw new BadRequestException('角色编码已存�?);
-    }
-
-    return this.prisma.roles.create({
-      data: {
-        name: data.name,
-        code: data.code,
-        description: `${sourceRole.description || ''} (复制)`,
-        permissions: sourceRole.permissions as any,
-      },
-    }) as any;
   }
 
   async update(
@@ -257,27 +110,26 @@ export class RolesService implements OnModuleInit {
       permissions?: string[];
     },
   ) {
-    const role = await this.findById(id);
+    await this.findById(id);
 
     return this.prisma.roles.update({
       where: { id },
       data: data as any,
-    }) as any;
+    });
   }
 
   async delete(id: string) {
     const role = await this.findById(id);
 
-    // 检查是否为系统内置角色
     if (role.isSystem) {
       throw new BadRequestException('系统内置角色无法删除');
     }
 
-    // 检查是否有用户使用该角�?    const usersWithRole = await this.prisma.users.count({
+    const usersWithRole = await this.prisma.users.count({
       where: { roleId: id },
     });
     if (usersWithRole > 0) {
-      throw new BadRequestException('该角色下存在用户，无法删�?);
+      throw new BadRequestException('该角色下存在用户，无法删除');
     }
 
     return this.prisma.roles.delete({
@@ -285,11 +137,34 @@ export class RolesService implements OnModuleInit {
     });
   }
 
+  async copy(id: string, data: { name: string; code: string }) {
+    const role = await this.findById(id);
+
+    const existing = await this.prisma.roles.findUnique({
+      where: { code: data.code },
+    });
+    if (existing) {
+      throw new BadRequestException('角色编码已存在');
+    }
+
+    return this.prisma.roles.create({
+      data: {
+        id: uuidv4(),
+        name: data.name,
+        code: data.code,
+        description: role.description,
+        permissions: role.permissions as any,
+        isSystem: false,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
   async getPermissions(id: string) {
     const role = await this.findById(id);
     return {
       roleId: id,
-      permissions: role.permissions,
+      permissions: role.permissions as string[],
     };
   }
 
@@ -298,11 +173,70 @@ export class RolesService implements OnModuleInit {
 
     return this.prisma.roles.update({
       where: { id },
-      data: { permissions: permissions as any },
-    }) as any;
+      data: {
+        permissions: permissions as any,
+        updatedAt: new Date(),
+      },
+    });
   }
 
   async getMenus() {
-    return SYSTEM_MENUS;
+    return [
+      {
+        id: 'dashboard',
+        name: '工作台',
+        permissions: ['view'],
+      },
+      {
+        id: 'grades',
+        name: '年级管理',
+        permissions: ['view', 'create', 'edit', 'delete', 'import', 'export'],
+      },
+      {
+        id: 'classes',
+        name: '班级管理',
+        permissions: ['view', 'create', 'edit', 'delete', 'import', 'export'],
+      },
+      {
+        id: 'students',
+        name: '学生管理',
+        permissions: ['view', 'create', 'edit', 'delete', 'import', 'export'],
+      },
+      {
+        id: 'teachers',
+        name: '教师管理',
+        permissions: ['view', 'create', 'edit', 'delete', 'import', 'export'],
+      },
+      {
+        id: 'dorms',
+        name: '宿舍管理',
+        permissions: ['view', 'create', 'edit', 'delete', 'import', 'export'],
+      },
+      {
+        id: 'users',
+        name: '用户管理',
+        permissions: ['view', 'create', 'edit', 'delete', 'import', 'reset-password'],
+      },
+      {
+        id: 'datascopes',
+        name: '数据范围',
+        permissions: ['view', 'edit'],
+      },
+      {
+        id: 'exams',
+        name: '考试管理',
+        permissions: ['view', 'create', 'edit', 'delete'],
+      },
+      {
+        id: 'moral',
+        name: '德育管理',
+        permissions: ['view', 'create', 'edit', 'delete'],
+      },
+      {
+        id: 'settings',
+        name: '系统设置',
+        permissions: ['view', 'edit'],
+      },
+    ];
   }
 }
