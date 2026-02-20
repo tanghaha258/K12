@@ -66,7 +66,10 @@ export class GradesService {
 
     return this.prisma.grades.update({
       where: { id },
-      data: updateGradeDto,
+      data: {
+        ...updateGradeDto,
+        updatedAt: new Date(),
+      },
     });
   }
 

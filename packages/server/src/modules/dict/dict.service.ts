@@ -110,7 +110,7 @@ export class DictService {
     });
   }
 
-  async createSubject(data: { code: string; name: string; maxScore?: number; gradeIds?: string[] }) {
+  async createSubject(data: { code: string; name: string; maxScore?: number; gradeIds?: string[]; gradeMaxScores?: Record<string, number> }) {
     const existing = await this.prisma.subjects.findUnique({
       where: { code: data.code },
     });
@@ -118,7 +118,7 @@ export class DictService {
       throw new BadRequestException('科目编码已存在');
     }
 
-    const { gradeIds, ...subjectData } = data;
+    const { gradeIds, gradeMaxScores, ...subjectData } = data;
 
     return this.prisma.subjects.create({
       data: {
@@ -129,6 +129,7 @@ export class DictService {
           create: gradeIds.map(gradeId => ({
             id: uuidv4(),
             gradeId,
+            maxScore: gradeMaxScores?.[gradeId] || null,
           })),
         } : undefined,
       },
@@ -147,7 +148,7 @@ export class DictService {
     });
   }
 
-  async updateSubject(id: string, data: { name?: string; code?: string; maxScore?: number; gradeIds?: string[] }) {
+  async updateSubject(id: string, data: { name?: string; code?: string; maxScore?: number; gradeIds?: string[]; gradeMaxScores?: Record<string, number> }) {
     const subject = await this.prisma.subjects.findUnique({ where: { id } });
     if (!subject) {
       throw new NotFoundException('科目不存在');
@@ -162,7 +163,7 @@ export class DictService {
       }
     }
 
-    const { gradeIds, ...updateData } = data;
+    const { gradeIds, gradeMaxScores, ...updateData } = data;
 
     if (gradeIds !== undefined) {
       await this.prisma.subject_grades.deleteMany({
@@ -179,6 +180,7 @@ export class DictService {
           create: gradeIds.map(gradeId => ({
             id: uuidv4(),
             gradeId,
+            maxScore: gradeMaxScores?.[gradeId] || null,
           })),
         } : undefined,
       },
@@ -203,6 +205,36 @@ export class DictService {
       throw new NotFoundException('科目不存在');
     }
 
+    // 检查科目是否被考试使用
+    const examSubjects = await this.prisma.exam_subjects.findMany({
+      where: { subjectId: id },
+      include: { exams: { select: { name: true } } },
+    });
+
+    if (examSubjects.length > 0) {
+      const examNames = examSubjects.map(es => es.exams.name).join(', ');
+      throw new BadRequestException(`该科目已被以下考试使用：${examNames}，无法删除`);
+    }
+
+    // 检查科目是否被分段规则使用
+    const scoreSegments = await this.prisma.score_segments.findMany({
+      where: { subjectId: id },
+    });
+
+    if (scoreSegments.length > 0) {
+      throw new BadRequestException('该科目已被分段规则使用，无法删除');
+    }
+
+    // 检查科目是否被教师任课使用
+    const teacherClasses = await this.prisma.teacher_classes.findMany({
+      where: { subjectId: id },
+    });
+
+    if (teacherClasses.length > 0) {
+      throw new BadRequestException('该科目已被教师任课使用，无法删除');
+    }
+
+    // 删除科目与年级的关联
     await this.prisma.subject_grades.deleteMany({
       where: { subjectId: id },
     });

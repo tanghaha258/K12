@@ -52,6 +52,16 @@ export class StudentsController {
     return this.studentsService.update(id, updateStudentDto, req.user.id);
   }
 
+  @Patch(':id/profile')
+  @ApiOperation({ summary: '更新学生档案信息' })
+  updateProfile(
+    @Param('id') id: string,
+    @Body() updateStudentDto: UpdateStudentDto,
+    @Request() req: RequestWithUser
+  ) {
+    return this.studentsService.update(id, updateStudentDto, req.user.id);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: '删除学生' })
   remove(@Param('id') id: string) {

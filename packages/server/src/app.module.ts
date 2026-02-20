@@ -16,6 +16,8 @@ import { ScoreLinesModule } from './modules/score-lines/score-lines.module';
 import { ExamsModule } from './modules/exams/exams.module';
 import { ScoresModule } from './modules/scores/scores.module';
 import { AnalysisModule } from './modules/analysis/analysis.module';
+import { MoralModule } from './modules/moral/moral.module';
+import { SettingsModule } from './modules/settings/settings.module';
 
 @Module({
   imports: [
@@ -38,6 +40,8 @@ import { AnalysisModule } from './modules/analysis/analysis.module';
     ExamsModule,
     ScoresModule,
     AnalysisModule,
+    MoralModule,
+    SettingsModule,
   ],
 })
 export class AppModule {}

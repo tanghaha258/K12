@@ -45,6 +45,16 @@ export class UpdateScoreSegmentDto {
   @IsOptional()
   name?: string;
 
+  @ApiPropertyOptional({ example: 'grade_id', description: '年级ID' })
+  @IsString()
+  @IsOptional()
+  gradeId?: string;
+
+  @ApiPropertyOptional({ example: 'subject_id', description: '科目ID（为空则适用所有科目）' })
+  @IsString()
+  @IsOptional()
+  subjectId?: string;
+
   @ApiPropertyOptional({ example: 90, description: '优秀分数线' })
   @IsNumber()
   @IsOptional()

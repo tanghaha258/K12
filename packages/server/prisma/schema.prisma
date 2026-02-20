@@ -153,6 +153,7 @@ model grades {
   subject_grades subject_grades[]
   score_segments score_segments[]
   score_lines    score_lines[]
+  moral_rules    moral_rules[]
 }
 
 model import_tasks {
@@ -171,34 +172,50 @@ model import_tasks {
 }
 
 model moral_events {
-  id         String   @id
+  id         String       @id
   studentId  String
-  ruleId     String?
-  source     String
-  category   String
-  itemName   String
-  scoreDelta Float
-  note       String?
-  images     Json?
-  status     String   @default("effective")
-  occurredAt DateTime @default(now())
-  createdAt  DateTime @default(now())
-  createdBy  String
-  students   students @relation(fields: [studentId], references: [id])
+  ruleId     String?      // 关联的规则ID
+  source     String       // 来源：teacher-教师录入, system-系统导入, import-批量导入
+  category   String       // 分类：behavior-行为规范, hygiene-卫生纪律, study-学习表现, activity-活动参与, other-其他
+  itemName   String       // 事项名称
+  scoreDelta Float        // 分值变化（正数为加分，负数为扣分）
+  note       String?      // 备注说明
+  images     Json?        // 图片证据
+  status     String       @default("effective") // 状态：effective-有效, cancelled-已撤销
+  occurredAt DateTime     @default(now()) // 发生时间
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  createdBy  String       // 创建人ID
+  cancelledBy String?     // 撤销人ID
+  cancelledAt DateTime?   // 撤销时间
+  cancelReason String?    // 撤销原因
+  students   students     @relation(fields: [studentId], references: [id])
+  rules      moral_rules? @relation(fields: [ruleId], references: [id])
 
   @@index([occurredAt])
   @@index([source])
   @@index([studentId])
+  @@index([category])
+  @@index([status])
+  @@index([ruleId])
 }
 
 model moral_rules {
-  id        String   @id
-  name      String
-  category  String
-  score     Float
-  gradeId   String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id          String         @id
+  name        String
+  category    String         // 分类：behavior-行为规范, hygiene-卫生纪律, study-学习表现, activity-活动参与, other-其他
+  score       Float          // 分值（正数为加分，负数为扣分）
+  description String?        // 规则说明
+  gradeId     String?        // 适用年级，null表示全校通用
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  grades      grades?        @relation(fields: [gradeId], references: [id])
+  events      moral_events[]
+
+  @@index([category])
+  @@index([gradeId])
+  @@index([isActive])
 }
 
 model permissions {
@@ -320,6 +337,7 @@ model subject_grades {
   id        String   @id
   subjectId String
   gradeId   String
+  maxScore  Float?   // 该科目在该年级的满分，null则使用subjects.maxScore
   createdAt DateTime @default(now())
   subjects  subjects @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   grades    grades   @relation(fields: [gradeId], references: [id], onDelete: Cascade)
@@ -434,4 +452,27 @@ enum users_status {
   ACTIVE
   INACTIVE
   PENDING
+}
+
+// 系统配置表
+model system_config {
+  id          String   @id
+  key         String   @unique
+  value       String
+  category    String   @default("system")
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+
+  @@index([category])
+}
+
+// 备份历史表
+model backup_history {
+  id        String   @id
+  filename  String
+  size      Int
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

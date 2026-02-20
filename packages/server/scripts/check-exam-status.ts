@@ -3,10 +3,12 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  const users = await prisma.users.findMany({
-    select: { account: true, name: true, role: true },
-  });
-  console.log('用户列表:', users);
+  const exams = await prisma.exams.findMany();
+  
+  console.log('考试列表:');
+  for (const exam of exams) {
+    console.log(`  ${exam.name}: status=${exam.status}`);
+  }
 }
 
 main()

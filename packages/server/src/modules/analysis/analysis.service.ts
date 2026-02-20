@@ -125,6 +125,38 @@ export class AnalysisService {
       };
     });
 
+    // 获取总分分段规则（subjectId为null的默认规则）
+    const scoreSegment = await this.prisma.score_segments.findFirst({
+      where: {
+        gradeId: exam.gradeId,
+        subjectId: null,
+        isActive: true,
+      },
+      orderBy: {
+        isDefault: 'desc',
+      },
+    });
+
+    // 使用分段规则或默认值计算分数段
+    const maxTotalScore = Math.max(...students.map((s) => s.totalMaxScore), 750);
+    const excellentLine = scoreSegment?.excellentMin ?? maxTotalScore * 0.9;
+    const goodLine = scoreSegment?.goodMin ?? maxTotalScore * 0.8;
+    const passLine = scoreSegment?.passMin ?? maxTotalScore * 0.6;
+    const failLine = scoreSegment?.failMax ?? passLine - 1;
+
+    // 计算分数段分布
+    const excellentCount = students.filter((s) => s.totalScore >= excellentLine).length;
+    const goodCount = students.filter((s) => s.totalScore >= goodLine && s.totalScore < excellentLine).length;
+    const passCount = students.filter((s) => s.totalScore >= passLine && s.totalScore < goodLine).length;
+    const failCount = students.filter((s) => s.totalScore < passLine).length;
+
+    const segments = [
+      { label: '优秀', count: excellentCount, percentage: total > 0 ? Math.round((excellentCount / total) * 100) : 0, threshold: excellentLine },
+      { label: '良好', count: goodCount, percentage: total > 0 ? Math.round((goodCount / total) * 100) : 0, threshold: goodLine },
+      { label: '及格', count: passCount, percentage: total > 0 ? Math.round((passCount / total) * 100) : 0, threshold: passLine },
+      { label: '不及格', count: failCount, percentage: total > 0 ? Math.round((failCount / total) * 100) : 0, threshold: failLine },
+    ];
+
     // 计算统计数据
     const statistics = totalScores.length > 0 ? {
       average: Math.round(ss.mean(totalScores) * 100) / 100,
@@ -132,6 +164,8 @@ export class AnalysisService {
       max: ss.max(totalScores),
       min: ss.min(totalScores),
       standardDeviation: Math.round(ss.standardDeviation(totalScores) * 100) / 100,
+      excellentRate: total > 0 ? Math.round((excellentCount / total) * 100) : 0,
+      passRate: total > 0 ? Math.round(((excellentCount + goodCount + passCount) / total) * 100) : 0,
     } : null;
 
     // 获取排名列表
@@ -156,6 +190,7 @@ export class AnalysisService {
       },
       total,
       statistics,
+      segments,
       lineDistribution,
       rankingList: rankingList.slice(0, 50), // 前50名
       fullRankingList: rankingList,

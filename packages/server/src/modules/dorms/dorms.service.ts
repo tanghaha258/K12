@@ -158,18 +158,38 @@ export class DormsService {
       throw new NotFoundException('楼栋不存在');
     }
 
-    return this.prisma.dorm_rooms.create({
-      data: {
-        id: uuidv4(),
-        buildingId: data.buildingId,
-        roomNo: data.roomNo,
-        floor: data.floor,
-        capacity: data.capacity || 4,
-        beds: data.beds || 4,
-        gender: data.gender || 'male',
-        remark: data.remark,
-        updatedAt: new Date(),
-      },
+    const bedCount = data.beds || 4;
+
+    return this.prisma.$transaction(async (tx) => {
+      // 创建房间
+      const room = await tx.dorm_rooms.create({
+        data: {
+          id: uuidv4(),
+          buildingId: data.buildingId,
+          roomNo: data.roomNo,
+          floor: data.floor,
+          capacity: data.capacity || 4,
+          beds: bedCount,
+          gender: data.gender || 'male',
+          remark: data.remark,
+          updatedAt: new Date(),
+        },
+      });
+
+      // 自动创建床位
+      for (let i = 1; i <= bedCount; i++) {
+        await tx.dorm_beds.create({
+          data: {
+            id: uuidv4(),
+            roomId: room.id,
+            bedNo: i.toString(),
+            status: 'empty',
+            updatedAt: new Date(),
+          },
+        });
+      }
+
+      return room;
     });
   }
 

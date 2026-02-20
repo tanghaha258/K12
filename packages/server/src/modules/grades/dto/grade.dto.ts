@@ -18,6 +18,11 @@ export class UpdateGradeDto {
   @IsOptional()
   name?: string;
 
+  @ApiPropertyOptional({ example: 2024, description: '入学年份' })
+  @IsInt()
+  @IsOptional()
+  entryYear?: number;
+
   @ApiPropertyOptional({ example: 'active', description: '年级状态' })
   @IsString()
   @IsOptional()

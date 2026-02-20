@@ -1,5 +1,6 @@
 import { IsString, IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class AnalysisQueryDto {
   @ApiProperty({ description: '考试ID' })
@@ -47,6 +48,7 @@ export class CriticalStudentDto {
   lineType?: string;
 
   @ApiPropertyOptional({ description: '浮动分数范围' })
+  @Type(() => Number)
   @IsNumber()
   @IsOptional()
   range?: number;
@@ -69,6 +71,7 @@ export class SubjectBalanceDto {
   classId?: string;
 
   @ApiPropertyOptional({ description: '偏科阈值（排名差异百分比）' })
+  @Type(() => Number)
   @IsNumber()
   @IsOptional()
   threshold?: number;
