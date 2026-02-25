@@ -33,6 +33,8 @@ interface Subject {
   maxScore?: number;
   createdAt: string;
   subject_grades?: {
+    gradeId: string;
+    maxScore?: number;
     grades: {
       id: string;
       name: string;
@@ -83,7 +85,13 @@ export default function Dict() {
   const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [deleteSubjectConfirm, setDeleteSubjectConfirm] = useState<Subject | null>(null);
-  const [subjectForm, setSubjectForm] = useState({ code: '', name: '', maxScore: 100, gradeIds: [] as string[] });
+  const [subjectForm, setSubjectForm] = useState({
+    code: '',
+    name: '',
+    maxScore: 100,
+    gradeIds: [] as string[],
+    gradeMaxScores: {} as Record<string, number>,
+  });
 
   // 分段规则相关状态
   const [showSegmentModal, setShowSegmentModal] = useState(false);
@@ -345,7 +353,7 @@ export default function Dict() {
             <button
               onClick={() => {
                 setEditingSubject(null);
-                setSubjectForm({ code: '', name: '', maxScore: 100, gradeIds: [] });
+                setSubjectForm({ code: '', name: '', maxScore: 100, gradeIds: [], gradeMaxScores: {} });
                 setShowSubjectModal(true);
               }}
               className="flex items-center gap-2 px-4 py-2 bg-ds-primary text-ds-fg rounded-md hover:bg-ds-primary/90 transition-colors"
@@ -361,7 +369,7 @@ export default function Dict() {
                 <tr>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">科目编码</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">科目名称</th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">满分</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">默认满分</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">适用年级</th>
                   <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">操作</th>
                 </tr>
@@ -380,18 +388,28 @@ export default function Dict() {
                       <td className="px-4 py-3 text-sm font-medium text-ds-fg">{subject.name}</td>
                       <td className="px-4 py-3 text-sm text-ds-fg">{subject.maxScore || 100}分</td>
                       <td className="px-4 py-3 text-sm text-ds-fg-muted">
-                        {subject.subject_grades?.map(sg => sg.grades.name).join(', ') || '所有年级'}
+                        {subject.subject_grades?.map(sg => {
+                          const maxScore = sg.maxScore || subject.maxScore || 100;
+                          return `${sg.grades.name}(${maxScore}分)`;
+                        }).join(', ') || '所有年级'}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
                           <button
                             onClick={() => {
                               setEditingSubject(subject);
+                              const gradeMaxScores: Record<string, number> = {};
+                              subject.subject_grades?.forEach(sg => {
+                                if (sg.maxScore) {
+                                  gradeMaxScores[sg.gradeId] = sg.maxScore;
+                                }
+                              });
                               setSubjectForm({
                                 code: subject.code,
                                 name: subject.name,
                                 maxScore: subject.maxScore || 100,
                                 gradeIds: subject.subject_grades?.map(sg => sg.grades.id) || [],
+                                gradeMaxScores,
                               });
                               setShowSubjectModal(true);
                             }}
@@ -610,7 +628,7 @@ export default function Dict() {
       {/* 科目添加/编辑弹窗 */}
       {showSubjectModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ds-overlay/50 backdrop-blur-sm">
-          <div className="w-full max-w-md glass-card p-6">
+          <div className="w-full max-w-lg glass-card p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-ds-fg">{editingSubject ? '编辑科目' : '添加科目'}</h2>
               <button onClick={() => setShowSubjectModal(false)} className="text-ds-fg-muted hover:text-ds-fg transition-colors">
@@ -640,7 +658,7 @@ export default function Dict() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-ds-fg mb-1">满分</label>
+                <label className="block text-sm font-medium text-ds-fg mb-1">默认满分</label>
                 <input
                   type="number"
                   min="0"
@@ -650,26 +668,58 @@ export default function Dict() {
                   className="w-full px-3 py-2 border border-ds-border rounded-md bg-ds-surface text-ds-fg focus:outline-none focus:ring-2 focus:ring-ds-primary/50"
                   required
                 />
+                <p className="text-xs text-ds-fg-muted mt-1">当年级未单独设置满分时使用此默认值</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-ds-fg mb-1">适用年级（可多选）</label>
-                <div className="flex flex-wrap gap-2">
+                <label className="block text-sm font-medium text-ds-fg mb-1">适用年级及满分设置</label>
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-ds-border rounded-md p-2">
                   {grades?.map((grade: any) => (
-                    <label key={grade.id} className="flex items-center gap-1 px-3 py-1.5 border border-ds-border rounded-md cursor-pointer hover:bg-ds-surface-2">
+                    <div key={grade.id} className="flex items-center gap-3 p-2 hover:bg-ds-surface-2 rounded">
                       <input
                         type="checkbox"
                         checked={subjectForm.gradeIds.includes(grade.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSubjectForm({ ...subjectForm, gradeIds: [...subjectForm.gradeIds, grade.id] });
+                            setSubjectForm({
+                              ...subjectForm,
+                              gradeIds: [...subjectForm.gradeIds, grade.id],
+                              gradeMaxScores: {
+                                ...subjectForm.gradeMaxScores,
+                                [grade.id]: subjectForm.gradeMaxScores[grade.id] || subjectForm.maxScore,
+                              },
+                            });
                           } else {
-                            setSubjectForm({ ...subjectForm, gradeIds: subjectForm.gradeIds.filter(id => id !== grade.id) });
+                            const newGradeIds = subjectForm.gradeIds.filter(id => id !== grade.id);
+                            const newGradeMaxScores = { ...subjectForm.gradeMaxScores };
+                            delete newGradeMaxScores[grade.id];
+                            setSubjectForm({
+                              ...subjectForm,
+                              gradeIds: newGradeIds,
+                              gradeMaxScores: newGradeMaxScores,
+                            });
                           }
                         }}
                         className="rounded border-ds-border"
                       />
-                      <span className="text-sm text-ds-fg">{grade.name}</span>
-                    </label>
+                      <span className="text-sm text-ds-fg w-20">{grade.name}</span>
+                      {subjectForm.gradeIds.includes(grade.id) && (
+                        <input
+                          type="number"
+                          min="0"
+                          max="300"
+                          value={subjectForm.gradeMaxScores[grade.id] || subjectForm.maxScore}
+                          onChange={(e) => setSubjectForm({
+                            ...subjectForm,
+                            gradeMaxScores: {
+                              ...subjectForm.gradeMaxScores,
+                              [grade.id]: Number(e.target.value),
+                            },
+                          })}
+                          className="w-24 px-2 py-1 text-sm border border-ds-border rounded-md bg-ds-surface text-ds-fg focus:outline-none focus:ring-2 focus:ring-ds-primary/50"
+                          placeholder="满分"
+                        />
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>

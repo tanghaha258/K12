@@ -99,6 +99,7 @@ const examStatusMap: Record<string, { label: string; color: string }> = {
   ongoing: { label: '进行中', color: 'bg-ds-success/20 text-ds-success' },
   ended: { label: '已结束', color: 'bg-purple-500/20 text-purple-500' },
   archived: { label: '已归档', color: 'bg-ds-fg-muted/20 text-ds-fg-muted' },
+  published: { label: '已发布', color: 'bg-ds-success/20 text-ds-success' },
 };
 
 const statusFlow = ['draft', 'pending', 'ongoing', 'ended', 'archived'];

@@ -85,6 +85,8 @@ const menuItems: MenuItem[] = [
     label: '德育量化',
     children: [
       { path: '/moral', label: '德育管理' },
+      { path: '/moral/entry', label: '德育录入' },
+      { path: '/dorm-moral', label: '宿舍德育管理' },
     ],
   },
   { path: '/settings', icon: Settings, label: '系统设置' },
@@ -100,11 +102,11 @@ function MenuItemComponent({
   const location = useLocation();
   const [expanded, setExpanded] = useState(() => {
     if (!item.children) return false;
-    return item.children.some((child) => location.pathname === child.path);
+    return item.children.some((child) => location.pathname.startsWith(child.path));
   });
 
   const isChildActive = item.children?.some(
-    (child) => location.pathname === child.path
+    (child) => location.pathname.startsWith(child.path)
   );
 
   if (item.children) {

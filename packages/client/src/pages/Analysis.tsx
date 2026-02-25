@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { analysisApi, examsApi, gradesApi, classesApi } from '@/lib/api';
+import { analysisApi, examsApi, gradesApi, classesApi, scoreLinesApi } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
+import * as XLSX from 'xlsx';
 import {
   BarChart3,
   TrendingUp,
@@ -41,15 +42,27 @@ export default function Analysis() {
   });
 
   const selectedExam = exams?.find((e: any) => e.id === selectedExamId);
+  const selectedGradeId = selectedExam?.grades?.id;
 
   const { data: classes } = useQuery({
-    queryKey: ['classes', selectedExam?.gradeId],
+    queryKey: ['classes', selectedGradeId],
     queryFn: async () => {
-      if (!selectedExam?.gradeId) return [];
-      const res = await classesApi.list({ gradeId: selectedExam.gradeId });
+      if (!selectedGradeId) return [];
+      const res = await classesApi.list({ gradeId: selectedGradeId });
       return res.data;
     },
-    enabled: !!selectedExam?.gradeId,
+    enabled: !!selectedGradeId,
+  });
+
+  // 获取线位列表
+  const { data: scoreLinesList } = useQuery({
+    queryKey: ['score-lines', selectedGradeId],
+    queryFn: async () => {
+      if (!selectedGradeId) return [];
+      const res = await scoreLinesApi.list({ gradeId: selectedGradeId });
+      return res.data;
+    },
+    enabled: !!selectedGradeId,
   });
 
   const { data: statistics } = useQuery({
@@ -92,15 +105,17 @@ export default function Analysis() {
     enabled: !!selectedExamId && !!previousExamId,
   });
 
-  const { data: criticalStudents } = useQuery({
+  const { data: criticalStudents, isLoading: isLoadingCritical, error: criticalError } = useQuery({
     queryKey: ['analysis-critical', selectedExamId, lineType, range],
     queryFn: async () => {
       if (!selectedExamId) return null;
+      console.log('Fetching critical students for exam:', selectedExamId, 'lineType:', lineType, 'range:', range);
       const res = await analysisApi.getCriticalStudents({
         examId: selectedExamId,
         lineType: lineType || undefined,
         range,
       });
+      console.log('Critical students response:', res.data);
       return res.data;
     },
     enabled: !!selectedExamId,
@@ -346,14 +361,16 @@ export default function Analysis() {
                     <div className="space-y-3">
                       {statistics.segments.map((seg: any, index: number) => {
                         // 计算区间显示
-                        const nextThreshold = index < statistics.segments.length - 1 ? statistics.segments[index + 1].threshold : 0;
+                        const scoreLines = statistics.scoreLines;
                         let rangeText = '';
                         if (seg.label === '优秀') {
-                          rangeText = `≥${seg.threshold}分`;
-                        } else if (seg.label === '不及格') {
-                          rangeText = `<${seg.threshold === 0 ? statistics.scoreLines?.pass || 60 : seg.threshold}分`;
+                          rangeText = `≥${scoreLines?.excellent}分`;
+                        } else if (seg.label === '良好') {
+                          rangeText = `${scoreLines?.good}分 ~ ${(scoreLines?.excellent || 100) - 1}分`;
+                        } else if (seg.label === '及格') {
+                          rangeText = `${scoreLines?.pass}分 ~ ${(scoreLines?.good || 80) - 1}分`;
                         } else {
-                          rangeText = `${nextThreshold}分 ~ ${seg.threshold - 1}分`;
+                          rangeText = `<${scoreLines?.pass || 60}分`;
                         }
                         return (
                           <div key={seg.label} className="space-y-1">
@@ -555,18 +572,20 @@ export default function Analysis() {
 
           <TabsContent value="critical" className="space-y-4">
             <div className="surface-card border border-ds-border rounded-lg p-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-ds-fg mb-1">线位类型</label>
+                  <label className="block text-sm font-medium text-ds-fg mb-1">线位</label>
                   <select
                     value={lineType}
                     onChange={(e) => setLineType(e.target.value)}
                     className="w-full px-3 py-2 border border-ds-border rounded-md bg-ds-surface text-ds-fg focus:outline-none focus:ring-2 focus:ring-ds-primary/50"
                   >
                     <option value="">全部线位</option>
-                    <option value="ONE_BOOK">一本线</option>
-                    <option value="REGULAR">普高线</option>
-                    <option value="CUSTOM">自定义线</option>
+                    {scoreLinesList?.map((line: any) => (
+                      <option key={line.id} value={line.type}>
+                        {line.name} ({line.scoreValue}分)
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -580,63 +599,156 @@ export default function Analysis() {
                     max="50"
                   />
                 </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={() => {
+                      if (!criticalStudents?.students?.length) return;
+                      
+                      // 准备数据
+                      const data = criticalStudents.students.map((s: any) => ({
+                        '学号': s.studentNo,
+                        '姓名': s.name,
+                        '班级': s.className,
+                        '总分': s.totalScore,
+                        '临界线': s.lineName,
+                        '距离': `${s.distance > 0 ? '+' : ''}${s.distance}分`,
+                        '状态': s.position === 'above' ? '线上' : '线下',
+                      }));
+                      
+                      // 创建工作簿
+                      const wb = XLSX.utils.book_new();
+                      const ws = XLSX.utils.json_to_sheet(data);
+                      
+                      // 设置列宽
+                      ws['!cols'] = [
+                        { wch: 12 },
+                        { wch: 10 },
+                        { wch: 12 },
+                        { wch: 8 },
+                        { wch: 12 },
+                        { wch: 10 },
+                        { wch: 8 },
+                      ];
+                      
+                      // 添加工作表到工作簿
+                      XLSX.utils.book_append_sheet(wb, ws, '临界生分析');
+                      
+                      // 导出文件
+                      XLSX.writeFile(wb, `临界生分析_${selectedExam?.name || ''}.xlsx`);
+                    }}
+                    disabled={!criticalStudents?.students?.length}
+                    className="flex items-center gap-2 px-4 py-2 bg-ds-primary text-white rounded-md hover:bg-ds-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Download className="w-4 h-4" />
+                    导出Excel
+                  </button>
+                </div>
               </div>
             </div>
 
-            {criticalStudents && (
+            {isLoadingCritical ? (
+              <div className="surface-card border border-ds-border rounded-lg p-8 text-center">
+                <div className="animate-spin w-8 h-8 border-2 border-ds-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                <p className="text-ds-fg-muted">加载中...</p>
+              </div>
+            ) : criticalError ? (
+              <div className="surface-card border border-ds-border rounded-lg p-8 text-center">
+                <p className="text-ds-danger">加载失败: {criticalError.message}</p>
+              </div>
+            ) : criticalStudents ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {criticalStudents.lines?.map((line: any) => (
-                    <div key={line.name} className="surface-card border border-ds-border rounded-lg p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Target className="w-5 h-5 text-ds-primary" />
-                        <span className="font-semibold text-ds-fg">{line.name}</span>
+                {/* 统计卡片区域 */}
+                {criticalStudents.lines?.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {criticalStudents.lines?.map((line: any) => (
+                      <div key={line.name} className="surface-card border border-ds-border rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Target className="w-5 h-5 text-ds-primary" />
+                          <span className="font-semibold text-ds-fg">{line.name}</span>
+                        </div>
+                        <div className="text-2xl font-bold text-ds-fg">{line.value}分</div>
+                        <div className="text-sm text-ds-fg-muted mt-1">
+                          临界生: {criticalStudents.students?.filter((s: any) => s.lineName === line.name).length || 0}人
+                        </div>
                       </div>
-                      <div className="text-2xl font-bold text-ds-fg">{line.value}分</div>
+                    ))}
+                    <div className="surface-card border border-ds-border rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="w-5 h-5 text-ds-warning" />
+                        <span className="font-semibold text-ds-fg">总计</span>
+                      </div>
+                      <div className="text-2xl font-bold text-ds-fg">{criticalStudents.students?.length || 0}人</div>
+                      <div className="text-sm text-ds-fg-muted mt-1">
+                        线上: {criticalStudents.students?.filter((s: any) => s.position === 'above').length || 0}人 / 
+                        线下: {criticalStudents.students?.filter((s: any) => s.position === 'below').length || 0}人
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
 
-                <div className="surface-card border border-ds-border rounded-lg overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-ds-surface">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">学号</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">姓名</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">班级</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">总分</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">临界线</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">距离</th>
-                        <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">状态</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {criticalStudents.students?.map((s: any) => (
-                        <tr key={`${s.studentId}-${s.lineName}`} className="border-t border-ds-border hover:bg-ds-surface-2/50 transition-colors">
-                          <td className="px-4 py-3 text-sm text-ds-fg-muted">{s.studentNo}</td>
-                          <td className="px-4 py-3 text-sm font-medium text-ds-fg">{s.name}</td>
-                          <td className="px-4 py-3 text-sm text-ds-fg-muted">{s.className}</td>
-                          <td className="px-4 py-3 text-sm font-medium text-ds-fg">{s.totalScore}</td>
-                          <td className="px-4 py-3 text-sm text-ds-fg-muted">{s.lineName}</td>
-                          <td className="px-4 py-3 text-sm">
-                            <span className={s.position === 'above' ? 'text-ds-success' : 'text-ds-danger'}>
-                              {s.distance > 0 ? '+' : ''}{s.distance}分
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${
-                              s.position === 'above' ? 'bg-ds-success/20 text-ds-success' : 'bg-ds-danger/20 text-ds-danger'
-                            }`}>
-                              {s.position === 'above' ? '线上' : '线下'}
-                            </span>
-                          </td>
+                {/* 无数据提示 */}
+                {!criticalStudents.lines?.length && !criticalStudents.students?.length && (
+                  <div className="surface-card border border-ds-border rounded-lg p-8 text-center">
+                    <Target className="w-12 h-12 text-ds-fg-muted mx-auto mb-4" />
+                    <p className="text-ds-fg-muted">暂无临界线配置</p>
+                    <p className="text-sm text-ds-fg-muted mt-2">请先在"字典与规则"-"线位配置"中添加线位</p>
+                  </div>
+                )}
+
+                {/* 学生列表表格 */}
+                {criticalStudents.students?.length > 0 ? (
+                  <div className="surface-card border border-ds-border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-ds-surface">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">学号</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">姓名</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">班级</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">总分</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">临界线</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">距离</th>
+                          <th className="px-4 py-3 text-left text-sm font-medium text-ds-fg">状态</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {criticalStudents.students?.map((s: any) => (
+                          <tr key={`${s.studentId}-${s.lineName}`} className="border-t border-ds-border hover:bg-ds-surface-2/50 transition-colors">
+                            <td className="px-4 py-3 text-sm text-ds-fg-muted">{s.studentNo}</td>
+                            <td className="px-4 py-3 text-sm font-medium text-ds-fg">{s.name}</td>
+                            <td className="px-4 py-3 text-sm text-ds-fg-muted">{s.className}</td>
+                            <td className="px-4 py-3 text-sm font-medium text-ds-fg">{s.totalScore}</td>
+                            <td className="px-4 py-3 text-sm text-ds-fg-muted">{s.lineName}</td>
+                            <td className="px-4 py-3 text-sm">
+                              <span className={s.position === 'above' ? 'text-ds-success' : 'text-ds-danger'}>
+                                {s.distance > 0 ? '+' : ''}{s.distance}分
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${
+                                s.position === 'above' ? 'bg-ds-success/20 text-ds-success' : 'bg-ds-danger/20 text-ds-danger'
+                              }`}>
+                                {s.position === 'above' ? '线上' : '线下'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="surface-card border border-ds-border rounded-lg p-8 text-center">
+                    <Users className="w-12 h-12 text-ds-fg-muted mx-auto mb-4" />
+                    <p className="text-ds-fg-muted">暂无临界生数据</p>
+                    <p className="text-sm text-ds-fg-muted mt-2">
+                      当前浮动范围为 {range} 分，没有学生在临界线附近
+                    </p>
+                    <p className="text-sm text-ds-fg-muted mt-1">
+                      建议增大浮动范围或调整线位配置
+                    </p>
+                  </div>
+                )}
               </>
-            )}
+            ) : null}
           </TabsContent>
 
           <TabsContent value="balance" className="space-y-4">

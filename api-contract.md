@@ -1,6 +1,12 @@
 # K12 教务管理系统 - API 契约
 
-> 最后更新：2026-02-19
+> 最后更新：2026-02-20
+
+## 服务地址
+
+- **前端地址**: http://localhost:5173/
+- **后端地址**: http://localhost:3000/
+- **API 文档**: http://localhost:3000/api/docs
 
 ## 通用约定
 
@@ -240,9 +246,13 @@
 ```typescript
 [{
   id: string,
-  name: string,        // 如 "2024级"
+  name: string,        // 如 "高一"
   entryYear: number,   // 入学年份
-  status: 'active' | 'graduated'
+  status: 'active' | 'graduated',
+  _count: {
+    classes: number,
+    students: number
+  }
 }]
 ```
 
@@ -259,6 +269,15 @@
 
 #### PATCH /api/org/grades/:id
 更新年级
+
+**请求体：**
+```typescript
+{
+  name?: string,
+  entryYear?: number,
+  status?: string
+}
+```
 
 #### DELETE /api/org/grades/:id
 删除年级
@@ -296,6 +315,12 @@
 }
 ```
 
+#### PATCH /api/org/classes/:id
+更新班级
+
+#### DELETE /api/org/classes/:id
+删除班级
+
 ---
 
 ## 4. 学生管理
@@ -313,7 +338,7 @@
 [{
   id: string,
   studentNo: string,
-  gender: string,
+  gender: string,  // 'male' | 'female'
   entryYear: number,
   gradeId: string,
   classId: string,
@@ -344,7 +369,7 @@
 {
   studentNo: string,
   name: string,
-  gender: '男' | '女',
+  gender: 'male' | 'female',
   entryYear: number,
   gradeId: string,
   classId: string,
@@ -360,8 +385,14 @@
 ### PATCH /api/students/:id
 更新学生信息
 
+### PATCH /api/students/:id/profile
+更新学生档案信息
+
 ### DELETE /api/students/:id
 删除学生
+
+### POST /api/students/batch-import
+批量导入学生
 
 ---
 
@@ -431,6 +462,15 @@
 }]
 ```
 
+### POST /api/dorms/buildings
+创建宿舍楼
+
+### PATCH /api/dorms/buildings/:id
+更新宿舍楼
+
+### DELETE /api/dorms/buildings/:id
+删除宿舍楼
+
 ### GET /api/dorms/rooms
 获取房间列表
 
@@ -452,6 +492,31 @@
   status: string
 }]
 ```
+
+### POST /api/dorms/rooms
+创建房间（自动创建床位）
+
+**请求体：**
+```typescript
+{
+  buildingId: string,
+  roomNo: string,
+  floor: number,
+  capacity: number,
+  beds: number,
+  gender: 'male' | 'female',
+  remark?: string
+}
+```
+
+### GET /api/dorms/beds
+获取床位列表
+
+**查询参数：**
+- `roomId`: 房间ID过滤
+
+### POST /api/dorms/beds
+创建床位
 
 ### GET /api/dorms/statistics
 获取宿舍统计
@@ -595,11 +660,15 @@
   id: string,
   name: string,
   code: string,
+  maxScore: number,
   subject_grades: [{
     grades: { id: string, name: string }
   }]
 }]
 ```
+
+### GET /api/dict/subjects/by-grade/:gradeId
+根据年级获取科目
 
 ### POST /api/dict/subjects
 创建科目
@@ -609,9 +678,26 @@
 {
   name: string,
   code: string,
+  maxScore?: number,
   gradeIds?: string[]
 }
 ```
+
+### PATCH /api/dict/subjects/:id
+更新科目
+
+**请求体：**
+```typescript
+{
+  name?: string,
+  code?: string,
+  maxScore?: number,
+  gradeIds?: string[]
+}
+```
+
+### DELETE /api/dict/subjects/:id
+删除科目
 
 ---
 
@@ -631,11 +717,23 @@
   gradeId: string,
   subjectId?: string,
   name: string,
-  segments: { label: string, min: number, max: number }[],
+  excellentMin: number,
+  goodMin: number,
+  passMin: number,
+  failMax: number,
   isDefault: boolean,
   isActive: boolean
 }]
 ```
+
+### POST /api/score-segments
+创建分段规则
+
+### PATCH /api/score-segments/:id
+更新分段规则
+
+### DELETE /api/score-segments/:id
+删除分段规则
 
 ---
 
@@ -650,8 +748,206 @@
   id: string,
   gradeId: string,
   name: string,
-  type: 'excellent' | 'good' | 'pass' | 'custom',
-  score: number,
+  type: 'ONE_BOOK' | 'REGULAR' | 'CUSTOM',
+  scoreValue: number,
   isActive: boolean
 }]
 ```
+
+### POST /api/score-lines
+创建线位
+
+### PATCH /api/score-lines/:id
+更新线位
+
+### DELETE /api/score-lines/:id
+删除线位
+
+---
+
+## 12. 考试管理
+
+### GET /api/exams
+获取考试列表
+
+**查询参数：**
+- `gradeId`: 年级过滤
+- `status`: 状态过滤
+
+**响应：**
+```typescript
+[{
+  id: string,
+  name: string,
+  type: string,
+  term: string,
+  schoolYear: string,
+  gradeId: string,
+  status: 'draft' | 'published',
+  exam_subjects: [{
+    id: string,
+    subjectId: string,
+    subjects: { id: string, name: string },
+    maxScore: number,
+    excellentLine?: number,
+    passLine?: number,
+    includeInTotal: boolean,
+    includeInRank: boolean
+  }]
+}]
+```
+
+### POST /api/exams
+创建考试
+
+### PATCH /api/exams/:id
+更新考试
+
+### DELETE /api/exams/:id
+删除考试
+
+---
+
+## 13. 成绩管理
+
+### GET /api/scores
+获取成绩列表
+
+**查询参数：**
+- `examId`: 考试ID
+- `studentId`: 学生ID
+- `subjectId`: 科目ID
+
+### POST /api/scores
+创建成绩
+
+### POST /api/scores/batch
+批量创建成绩
+
+### POST /api/scores/import/:examId
+导入成绩
+
+### POST /api/scores/validate/:examId
+验证成绩数据
+
+### PATCH /api/scores/:id
+更新成绩
+
+### DELETE /api/scores/:id
+删除成绩
+
+### POST /api/scores/ranks/:examId
+计算排名
+
+### GET /api/scores/export/:examId
+导出成绩
+
+---
+
+## 14. 成绩分析
+
+### GET /api/analysis/statistics
+获取基础统计
+
+**查询参数：**
+- `examId`: 考试ID（必填）
+- `subjectId`: 科目ID（可选，不传则统计总分）
+- `classId`: 班级ID（可选）
+
+**响应：**
+```typescript
+{
+  mode: 'subject' | 'total',
+  exam: { id: string, name: string, gradeName: string },
+  subject?: { id: string, name: string },
+  total: number,
+  absentCount: number,
+  maxScore: number,
+  scoreLines: {
+    excellent: number,
+    good: number,
+    pass: number
+  },
+  statistics: {
+    average: number,
+    median: number,
+    max: number,
+    min: number,
+    standardDeviation: number,
+    excellentRate: number,
+    passRate: number
+  },
+  segments: [{
+    label: string,
+    count: number,
+    percentage: number,
+    threshold: number
+  }],
+  excellentCount: number,
+  goodCount: number,
+  passCount: number,
+  failCount: number,
+  rankingList: [{
+    rank: number,
+    studentId: string,
+    studentNo: string,
+    name: string,
+    className: string,
+    score: number
+  }]
+}
+```
+
+### GET /api/analysis/class-comparison
+班级对比分析
+
+### GET /api/analysis/progress
+进退步分析
+
+### GET /api/analysis/critical-students
+临界生分析
+
+### GET /api/analysis/subject-balance
+学科均衡分析
+
+### GET /api/analysis/radar
+雷达图分析
+
+---
+
+## 15. 德育量化
+
+### GET /api/moral/rules
+获取德育规则列表
+
+### POST /api/moral/rules
+创建德育规则
+
+### GET /api/moral/events
+获取德育事件列表
+
+### POST /api/moral/events
+创建德育事件
+
+### GET /api/moral/stats/:studentId
+获取学生德育统计
+
+---
+
+## 16. 系统设置
+
+### GET /api/settings
+获取系统设置
+
+### PATCH /api/settings
+更新系统设置
+
+### GET /api/audit-logs
+获取操作日志
+
+**查询参数：**
+- `page`: 页码
+- `pageSize`: 每页数量
+- `action`: 操作类型
+- `startDate`: 开始日期
+- `endDate`: 结束日期

@@ -235,12 +235,21 @@ export default function Roles() {
 
   // 计算权限数量（处理通配符 '*' 的情况）
   const calculatePermissionCount = (role: Role) => {
-    if (!role.permissions || role.permissions.length === 0) return 0;
+    // 确保 permissions 是数组
+    let permissions = role.permissions;
+    if (typeof permissions === 'string') {
+      try {
+        permissions = JSON.parse(permissions);
+      } catch {
+        permissions = [];
+      }
+    }
+    if (!permissions || !Array.isArray(permissions) || permissions.length === 0) return 0;
     // 如果包含通配符 '*'，计算所有菜单权限的总数
-    if (role.permissions.includes('*')) {
+    if (permissions.includes('*')) {
       return menus?.reduce((total, menu) => total + menu.permissions.length, 0) || 0;
     }
-    return role.permissions.length;
+    return permissions.length;
   };
 
   if (!isAdmin) {

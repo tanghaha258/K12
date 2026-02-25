@@ -431,7 +431,7 @@ export default function Students() {
                 <tr key={student.id} className="border-b border-ds-divider transition-colors hover:bg-ds-surface">
                   <td className="px-4 py-3 text-sm text-ds-fg tabular-nums">{student.studentNo}</td>
                   <td className="px-4 py-3 text-sm font-medium text-ds-fg">{student.user.name}</td>
-                  <td className="px-4 py-3 text-sm text-ds-fg-muted">{student.gender}</td>
+                  <td className="px-4 py-3 text-sm text-ds-fg-muted">{student.gender === 'male' ? '男' : student.gender === 'female' ? '女' : student.gender}</td>
                   <td className="px-4 py-3 text-sm text-ds-fg-muted">{student.grade?.name}</td>
                   <td className="px-4 py-3 text-sm text-ds-fg-muted">{student.class?.name}</td>
                   <td className="px-4 py-3 text-sm text-ds-fg-muted tabular-nums">{student.seatNo || '-'}</td>

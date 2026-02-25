@@ -15,6 +15,11 @@ import Roles from '@/pages/Roles';
 import Dict from '@/pages/Dict';
 import Exams from '@/pages/Exams';
 import Analysis from '@/pages/Analysis';
+import Settings from '@/pages/Settings';
+import Moral from '@/pages/Moral';
+import MoralEventEntry from '@/pages/MoralEventEntry';
+import MoralStats from '@/pages/MoralStats';
+import DormMoral from '@/pages/DormMoral';
 
 function App() {
   const { isAuthenticated } = useAuthStore();
@@ -44,6 +49,11 @@ function App() {
           <Route path="/exams" element={<Exams />} />
           <Route path="/analysis" element={<Analysis />} />
           <Route path="/datascopes" element={<DataScopes />} />
+          <Route path="/moral" element={<Moral />} />
+          <Route path="/moral/entry" element={<MoralEventEntry />} />
+          <Route path="/moral/stats" element={<MoralStats />} />
+          <Route path="/dorm-moral" element={<DormMoral />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </ErrorBoundary>

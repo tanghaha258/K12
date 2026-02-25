@@ -93,8 +93,8 @@ export const teachersApi = {
 export const subjectsApi = {
   list: () => api.get('/dict/subjects/all'),
   listByGrade: (gradeId: string) => api.get(`/dict/subjects/by-grade/${gradeId}`),
-  create: (data: { code: string; name: string; maxScore?: number; gradeIds?: string[] }) => api.post('/dict/subjects', data),
-  update: (id: string, data: { name?: string; code?: string; maxScore?: number; gradeIds?: string[] }) => api.patch(`/dict/subjects/${id}`, data),
+  create: (data: { code: string; name: string; maxScore?: number; gradeIds?: string[]; gradeMaxScores?: Record<string, number> }) => api.post('/dict/subjects', data),
+  update: (id: string, data: { name?: string; code?: string; maxScore?: number; gradeIds?: string[]; gradeMaxScores?: Record<string, number> }) => api.patch(`/dict/subjects/${id}`, data),
   delete: (id: string) => api.delete(`/dict/subjects/${id}`),
 };
 
@@ -114,6 +114,8 @@ export const scoreSegmentsApi = {
   }) => api.post('/score-segments', data),
   update: (id: string, data: Partial<{
     name: string;
+    gradeId: string;
+    subjectId: string;
     excellentMin: number;
     goodMin: number;
     passMin: number;
